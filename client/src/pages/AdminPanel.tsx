@@ -74,10 +74,12 @@ import {
   SendTimeExtension,
   History,
   Assessment,
+  Description,
 } from '@mui/icons-material';
 import AppLayout from '../components/layout/AppLayout';
 import { useAuth } from '../contexts/AuthContext';
 import TransactionVerificationPanel from '../components/admin/TransactionVerificationPanel';
+import { recordStateTransition } from '../utils/StateTransitionManager';
 
 // Styled components
 const GradientDivider = styled(Divider)(({ theme }) => ({
@@ -286,262 +288,6 @@ const pendingUsers: User[] = [
       id: 'mile_003',
       project: 'Solar Micro-Grids',
       innovator: 'Michael Chen',
-      description: 'First production batch',
-      submittedDate: '2025-03-10',
-      fundingRequired: 30000,
-    },
-    {
-      id: 'mile_004',
-      project: 'Healthcare AI Diagnostics',
-      innovator: 'Emily Rodriguez',
-      description: 'Algorithm validation with clinical data',
-      submittedDate: '2025-03-12',
-      fundingRequired: 45000,
-    },
-  ];
-  
-  const pendingEscrow: Escrow[] = [
-    {
-      id: 'escrow_001',
-      project: 'Smart Agriculture System',
-      milestone: 'Develop prototype',
-      amount: 10000,
-      requestDate: '2025-03-09',
-    },
-    {
-      id: 'escrow_002',
-      project: 'Clean Water Initiative',
-      milestone: 'Field testing phase',
-      amount: 15000,
-      requestDate: '2025-03-10',
-    },
-    {
-      id: 'escrow_003',
-      project: 'Solar Micro-Grids',
-      milestone: 'First production batch',
-      amount: 30000,
-      requestDate: '2025-03-10',
-    },
-  ];
-  
-  // Mock messages that need admin attention
-  const pendingMessages: Message[] = [
-    {
-      id: 'msg_001',
-      from: 'John Doe',
-      fromId: 'user_005',
-      subject: 'Question about milestone verification',
-      content: 'I submitted my milestone proof but haven\'t heard back for over a week. Can you please check the status?',
-      received: '2025-03-08',
-      priority: 'high',
-    },
-    {
-      id: 'msg_002',
-      from: 'Michael Brown',
-      fromId: 'user_003',
-      subject: 'Issue with payment verification',
-      content: 'My bank transfer was completed 3 days ago but my wallet still shows as pending. Reference number: BTR-82930.',
-      received: '2025-03-09',
-      priority: 'medium',
-    },
-    {
-      id: 'msg_003',
-      from: 'Emily Chen',
-      fromId: 'user_004',
-      subject: 'Request for project deadline extension',
-      content: 'Due to unexpected supply chain issues, we need to request a two-week extension on our current milestone.',
-      received: '2025-03-10',
-      priority: 'low',
-    },
-    {
-      id: 'msg_004',
-      from: 'Sarah Johnson',
-      fromId: 'user_002',
-      subject: 'Problem with project documentation',
-      content: 'I\'m having trouble uploading additional documentation for my milestone verification. The system keeps timing out when I try to upload files larger than 10MB.',
-      received: '2025-03-11',
-      priority: 'medium',
-    },
-    {
-      id: 'msg_005',
-      from: 'Robert Miller',
-      fromId: 'user_007',
-      subject: 'Inquiry about rejected application',
-      content: 'My account application was rejected yesterday but I wasn\'t given a specific reason. Could you please explain why it was rejected and what I need to do to get approved?',
-      received: '2025-03-12',
-      priority: 'high',
-    },
-  ];
-  
-  // Sample system health data
-  const mockSystemHealth: SystemHealth = {
-    status: 'healthy',
-    uptime: '23 days, 7 hours',
-    databaseConnections: 15,
-    activeUsers: 42,
-    cpuUsage: 32,
-    memoryUsage: 45,
-    lastBackup: '2025-03-09T02:30:00Z',
-  };
-  
-  // Sample dashboard statistics
-  const mockDashboardStats = {
-    totalUsers: 124,
-    activeProjects: 32,
-    pendingApprovals: 18,
-    escrowFunds: 825000,
-    recentActivity: [
-      {
-        id: 'act_001',
-        type: 'user_registration',
-        user: 'Emma Johnson',
-        timestamp: new Date(Date.now() - 3600000).toISOString(), // 1 hour ago
-      },
-      {
-        id: 'act_002',
-        type: 'project_submission',
-        project: 'Solar Micro-Grids',
-        user: 'Michael Chen',
-        timestamp: new Date(Date.now() - 7200000).toISOString(), // 2 hours ago
-      },
-      {
-        id: 'act_003',
-        type: 'escrow_release',
-        project: 'Clean Water Initiative',
-        amount: 25000,
-        timestamp: new Date(Date.now() - 86400000).toISOString(), // 1 day ago
-      },
-      {
-        id: 'act_004',
-        type: 'milestone_verification',
-        project: 'Healthcare AI Diagnostics',
-        milestone: 'Data collection phase',
-        timestamp: new Date(Date.now() - 172800000).toISOString(), // 2 days ago
-      },
-      {
-        id: 'act_005',
-        type: 'user_verification',
-        user: 'Robert Miller',
-        status: 'rejected',
-        timestamp: new Date(Date.now() - 259200000).toISOString(), // 3 days ago
-      },
-    ],
-    projectBreakdown: {
-      agriTech: 8,
-      cleanTech: 12,
-      energy: 7,
-      healthTech: 5,
-      edTech: 6,
-      finTech: 3,
-      other: 4,
-    },
-    userRoles: {
-      innovators: 62,
-      investors: 47,
-      admins: 5,
-      escrowManagers: 10,
-    },
-  };
-  // Sample data for the admin panel
-const pendingUsers: User[] = [
-    {
-      id: 'user_001',
-      name: 'Emma Johnson',
-      email: 'emma@example.com',
-      role: 'Innovator',
-      registeredDate: '2025-03-01',
-      documents: ['id_proof.pdf', 'address_proof.pdf'],
-    },
-    {
-      id: 'user_002',
-      name: 'Michael Brown',
-      email: 'michael@example.com',
-      role: 'Investor',
-      registeredDate: '2025-03-05',
-      documents: ['id_proof.pdf', 'investment_history.pdf'],
-    },
-    {
-      id: 'user_003',
-      name: 'Sophia Williams',
-      email: 'sophia@example.com',
-      role: 'Innovator',
-      registeredDate: '2025-03-08',
-      documents: ['id_proof.pdf', 'project_history.pdf'],
-    },
-    {
-      id: 'user_004',
-      name: 'James Wilson',
-      email: 'james@example.com',
-      role: 'Investor',
-      registeredDate: '2025-03-09',
-      documents: ['id_proof.pdf', 'financial_statement.pdf', 'passport.pdf'],
-    },
-    {
-      id: 'user_005',
-      name: 'Olivia Taylor',
-      email: 'olivia@example.com',
-      role: 'Innovator',
-      registeredDate: '2025-03-10',
-      documents: ['id_proof.pdf', 'business_plan.pdf'],
-    },
-  ];
-  
-  const pendingProjects: Project[] = [
-    {
-      id: 'proj_001',
-      title: 'Smart Agriculture System',
-      innovator: 'John Doe',
-      submittedDate: '2025-03-02',
-      category: 'AgriTech',
-      fundingGoal: 50000,
-    },
-    {
-      id: 'proj_002',
-      title: 'Clean Water Initiative',
-      innovator: 'Sarah Johnson',
-      submittedDate: '2025-03-07',
-      category: 'CleanTech',
-      fundingGoal: 75000,
-    },
-    {
-      id: 'proj_003',
-      title: 'Solar Micro-Grids',
-      innovator: 'Michael Chen',
-      submittedDate: '2025-03-08',
-      category: 'Energy',
-      fundingGoal: 120000,
-    },
-    {
-      id: 'proj_004',
-      title: 'Healthcare AI Diagnostics',
-      innovator: 'Emily Rodriguez',
-      submittedDate: '2025-03-10',
-      category: 'HealthTech',
-      fundingGoal: 200000,
-    },
-  ];
-  
-  const pendingMilestones: Milestone[] = [
-    {
-      id: 'mile_001',
-      project: 'Smart Agriculture System',
-      innovator: 'John Doe',
-      description: 'Develop prototype',
-      submittedDate: '2025-03-09',
-      fundingRequired: 10000,
-    },
-    {
-      id: 'mile_002',
-      project: 'Clean Water Initiative',
-      innovator: 'Sarah Johnson',
-      description: 'Field testing phase',
-      submittedDate: '2025-03-10',
-      fundingRequired: 15000,
-    },
-    {
-      id: 'mile_003',
-      project: 'Solar Micro-Grids',
-      innovator: 'Michael Chen',
       description: 'Setup manufacturing facilities',
       submittedDate: '2025-03-11',
       fundingRequired: 30000,
@@ -587,7 +333,6 @@ const pendingUsers: User[] = [
     },
   ];
   
-  // Mock messages that need admin attention
   const pendingMessages: Message[] = [
     {
       id: 'msg_001',
@@ -636,7 +381,6 @@ const pendingUsers: User[] = [
     },
   ];
   
-  // Mock system health data
   const mockSystemHealth: SystemHealth = {
     status: 'healthy',
     uptime: '23 days, 5 hours',
@@ -647,7 +391,6 @@ const pendingUsers: User[] = [
     lastBackup: '2025-03-09T03:00:00Z',
   };
   
-  // Mock dashboard stats
   const mockDashboardStats = {
     totalUsers: 124,
     activeProjects: 32,
@@ -753,40 +496,185 @@ const pendingUsers: User[] = [
     const [documentPreviewOpen, setDocumentPreviewOpen] = useState(false);
     const [documentName, setDocumentName] = useState('');
     
+    // State for transition history
+    const [transitionHistoryDialogOpen, setTransitionHistoryDialogOpen] = useState(false);
+    const [transitionHistory, setTransitionHistory] = useState<any[]>([]);
+
     // Load data on component mount
-    useEffect(() => {
-      fetchDashboardStats();
-      fetchSystemHealth();
-    }, []);
-    
-    // Fetch dashboard stats
-    const fetchDashboardStats = async () => {
-      setLoading(true);
-      try {
-        // In real app, this would be an API call
-        // For now, just simulate a delay
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        setDashboardStats(mockDashboardStats);
-      } catch (error) {
-        console.error('Error fetching dashboard stats:', error);
-        showSnackbar('Failed to fetch dashboard statistics', 'error');
-      } finally {
-        setLoading(false);
-      }
-    };
-    
-    // Fetch system health
-    const fetchSystemHealth = async () => {
-      try {
-        // In real app, this would be an API call
-        // For now, just simulate a delay
-        await new Promise(resolve => setTimeout(resolve, 500));
-        setSystemHealth(mockSystemHealth);
-      } catch (error) {
-        console.error('Error fetching system health:', error);
-      }
-    };
-    // Tab change handler
+  useEffect(() => {
+    fetchDashboardStats();
+    fetchSystemHealth();
+    fetchPendingUsers();
+    fetchPendingProjects();
+    fetchPendingMilestones();
+    fetchPendingEscrow();
+    fetchPendingMessages();
+  }, []);
+  
+  // Fetch dashboard stats
+  const fetchDashboardStats = async () => {
+    setLoading(true);
+    try {
+      // In real app, this would be an API call
+      // const response = await fetch('/api/admin/dashboard/stats');
+      // const data = await response.json();
+      // setDashboardStats(data);
+      
+      // For now, just simulate a delay
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      setDashboardStats(mockDashboardStats);
+    } catch (error) {
+      console.error('Error fetching dashboard stats:', error);
+      showSnackbar('Failed to fetch dashboard statistics', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  // Fetch system health
+  const fetchSystemHealth = async () => {
+    try {
+      // In real app, this would be an API call
+      // const response = await fetch('/api/admin/system/health');
+      // const data = await response.json();
+      // setSystemHealth(data);
+      
+      // For now, just simulate a delay
+      await new Promise(resolve => setTimeout(resolve, 500));
+      setSystemHealth(mockSystemHealth);
+    } catch (error) {
+      console.error('Error fetching system health:', error);
+    }
+  };
+  
+  // Fetch pending users
+  const fetchPendingUsers = async () => {
+    try {
+      // In real app, this would be an API call
+      // const response = await fetch('/api/admin/users/pending');
+      // if (response.ok) {
+      //   const data = await response.json();
+      //   setUsers(data);
+      // }
+      
+      // For now, just use mock data
+      setUsers(pendingUsers);
+    } catch (error) {
+      console.error('Error fetching pending users:', error);
+    }
+  };
+  
+  // Fetch pending projects
+  const fetchPendingProjects = async () => {
+    try {
+      // In real app, this would be an API call
+      // const response = await fetch('/api/admin/projects/pending');
+      // if (response.ok) {
+      //   const data = await response.json();
+      //   setProjects(data);
+      // }
+      
+      // For now, just use mock data
+      setProjects(pendingProjects);
+    } catch (error) {
+      console.error('Error fetching pending projects:', error);
+    }
+  };
+  
+  // Fetch pending milestones
+  const fetchPendingMilestones = async () => {
+    try {
+      // In real app, this would be an API call
+      // const response = await fetch('/api/admin/milestones/pending');
+      // if (response.ok) {
+      //   const data = await response.json();
+      //   setMilestones(data);
+      // }
+      
+      // For now, just use mock data
+      setMilestones(pendingMilestones);
+    } catch (error) {
+      console.error('Error fetching pending milestones:', error);
+    }
+  };
+  
+  // Fetch pending escrow requests
+  const fetchPendingEscrow = async () => {
+    try {
+      // In real app, this would be an API call
+      // const response = await fetch('/api/admin/escrow/pending');
+      // if (response.ok) {
+      //   const data = await response.json();
+      //   setEscrows(data);
+      // }
+      
+      // For now, just use mock data
+      setEscrows(pendingEscrow);
+    } catch (error) {
+      console.error('Error fetching pending escrow requests:', error);
+    }
+  };
+  
+  // Fetch pending messages
+  const fetchPendingMessages = async () => {
+    try {
+      // In real app, this would be an API call
+      // const response = await fetch('/api/admin/messages/pending');
+      // if (response.ok) {
+      //   const data = await response.json();
+      //   setMessages(data);
+      // }
+      
+      // For now, just use mock data
+      setMessages(pendingMessages);
+    } catch (error) {
+      console.error('Error fetching pending messages:', error);
+    }
+  };
+  
+  // Fetch transition history for an entity
+  const fetchTransitionHistory = async (entityId: string, entityType: 'user' | 'project' | 'milestone' | 'escrow') => {
+    setLoading(true);
+    try {
+      // In real app, this would be an API call
+      // const response = await fetch(`/api/admin/transitions?entityId=${entityId}&entityType=${entityType}`);
+      // if (response.ok) {
+      //   const data = await response.json();
+      //   setTransitionHistory(data);
+      // }
+      
+      // For now, just simulate a response
+      await new Promise(resolve => setTimeout(resolve, 500));
+      setTransitionHistory([
+        {
+          id: 'transition_001',
+          entityId,
+          entityType,
+          fromState: 'PendingApproval',
+          toState: 'Verified',
+          performedBy: 'Admin User',
+          timestamp: new Date(Date.now() - 86400000).toISOString(),
+        },
+        {
+          id: 'transition_002',
+          entityId,
+          entityType,
+          fromState: 'Verified',
+          toState: 'Active',
+          performedBy: 'System',
+          timestamp: new Date(Date.now() - 72000000).toISOString(),
+        }
+      ]);
+      
+      setTransitionHistoryDialogOpen(true);
+    } catch (error) {
+      console.error('Error fetching transition history:', error);
+      showSnackbar('Failed to fetch transition history', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+  // Tab change handler
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
   };
@@ -831,13 +719,33 @@ const pendingUsers: User[] = [
       if (actionType === 'approve') {
         // Determine the type of item and call appropriate method
         if (itemId.startsWith('user_')) {
+          // Record state transition before making the API call
+          await recordStateTransition(
+            itemId,
+            'user',
+            selectedItem.status || 'PendingApproval',
+            'Verified'
+          );
+          
           // Simulate API call
+          // const response = await fetch(`/api/admin/users/${itemId}/approve`, {
+          //   method: 'PUT'
+          // });
+          // success = response.ok;
           await new Promise(resolve => setTimeout(resolve, 1000));
           
           success = true;
           setUsers(users.filter(u => u.id !== itemId));
           showSnackbar(`User ${selectedItem.name} has been approved`);
         } else if (itemId.startsWith('proj_')) {
+          // Record state transition
+          await recordStateTransition(
+            itemId,
+            'project',
+            selectedItem.status || 'PendingApproval',
+            'SeekingFunding'
+          );
+          
           // Simulate API call
           await new Promise(resolve => setTimeout(resolve, 1000));
           
@@ -845,6 +753,14 @@ const pendingUsers: User[] = [
           setProjects(projects.filter(p => p.id !== itemId));
           showSnackbar(`Project ${selectedItem.title} has been approved`);
         } else if (itemId.startsWith('mile_')) {
+          // Record state transition
+          await recordStateTransition(
+            itemId,
+            'milestone',
+            selectedItem.status || 'PendingVerification',
+            'Approved'
+          );
+          
           // Simulate API call
           await new Promise(resolve => setTimeout(resolve, 1000));
           
@@ -852,6 +768,14 @@ const pendingUsers: User[] = [
           setMilestones(milestones.filter(m => m.id !== itemId));
           showSnackbar(`Milestone ${selectedItem.description} has been verified`);
         } else if (itemId.startsWith('escrow_')) {
+          // Record state transition
+          await recordStateTransition(
+            itemId,
+            'escrow',
+            selectedItem.status || 'Locked',
+            'Released'
+          );
+          
           // Simulate API call
           await new Promise(resolve => setTimeout(resolve, 1000));
           
@@ -871,14 +795,41 @@ const pendingUsers: User[] = [
         await new Promise(resolve => setTimeout(resolve, 1000));
         
         if (itemId.startsWith('user_')) {
+          // Record state transition with reason
+          await recordStateTransition(
+            itemId,
+            'user',
+            selectedItem.status || 'PendingApproval',
+            'Rejected',
+            rejectionReason
+          );
+          
           success = true;
           setUsers(users.filter(u => u.id !== itemId));
           showSnackbar(`User ${selectedItem.name} has been rejected`);
         } else if (itemId.startsWith('proj_')) {
+          // Record state transition with reason
+          await recordStateTransition(
+            itemId,
+            'project',
+            selectedItem.status || 'PendingApproval',
+            'Rejected',
+            rejectionReason
+          );
+          
           success = true;
           setProjects(projects.filter(p => p.id !== itemId));
           showSnackbar(`Project ${selectedItem.title} has been rejected`);
         } else if (itemId.startsWith('mile_')) {
+          // Record state transition with reason
+          await recordStateTransition(
+            itemId,
+            'milestone',
+            selectedItem.status || 'PendingVerification',
+            'Rejected',
+            rejectionReason
+          );
+          
           success = true;
           setMilestones(milestones.filter(m => m.id !== itemId));
           showSnackbar(`Milestone ${selectedItem.description} has been rejected`);
@@ -896,7 +847,6 @@ const pendingUsers: User[] = [
       handleActionDialogClose();
     }
   };
-  
   // Handle message selection
   const handleMessageOpen = (message: Message) => {
     setSelectedMessage(message);
@@ -1032,6 +982,7 @@ const pendingUsers: User[] = [
       day: 'numeric',
     });
   };
+  
   // Helper function to get color for activity type
   const getActivityColor = (type: string) => {
     switch (type) {
@@ -1085,7 +1036,6 @@ const pendingUsers: User[] = [
         return 'Unknown activity';
     }
   };
-  
   // Render the Dashboard tab
   const renderDashboardTab = () => {
     if (loading && !dashboardStats) {
@@ -1372,6 +1322,7 @@ const pendingUsers: User[] = [
             startIcon={<Refresh />}
             onClick={() => {
               setLoading(true);
+              fetchPendingUsers();
               setTimeout(() => setLoading(false), 1000);
             }}
           >
@@ -1454,6 +1405,14 @@ const pendingUsers: User[] = [
                   >
                     Reject
                   </Button>
+                  <IconButton 
+                    size="small" 
+                    color="primary"
+                    sx={{ ml: 1 }}
+                    onClick={() => fetchTransitionHistory(user.id, 'user')}
+                  >
+                    <History />
+                  </IconButton>
                 </Box>
               </ListItem>
             ))}
@@ -1462,7 +1421,7 @@ const pendingUsers: User[] = [
       </>
     );
   };
-  
+
   // Render Project Approval Tab
   const renderProjectApprovalTab = () => {
     // Apply filtering
@@ -1508,6 +1467,7 @@ const pendingUsers: User[] = [
             startIcon={<Refresh />}
             onClick={() => {
               setLoading(true);
+              fetchPendingProjects();
               setTimeout(() => setLoading(false), 1000);
             }}
           >
@@ -1597,6 +1557,13 @@ const pendingUsers: User[] = [
                       >
                         Approve
                       </Button>
+                      <IconButton 
+                        size="small" 
+                        color="primary"
+                        onClick={() => fetchTransitionHistory(project.id, 'project')}
+                      >
+                        <History />
+                      </IconButton>
                     </Box>
                   </CardContent>
                 </Card>
@@ -1640,6 +1607,7 @@ const pendingUsers: User[] = [
             startIcon={<Refresh />}
             onClick={() => {
               setLoading(true);
+              fetchPendingMilestones();
               setTimeout(() => setLoading(false), 1000);
             }}
           >
@@ -1717,6 +1685,14 @@ const pendingUsers: User[] = [
                     >
                       Reject
                     </Button>
+                    <IconButton 
+                      size="small" 
+                      color="primary"
+                      sx={{ ml: 1 }}
+                      onClick={() => fetchTransitionHistory(milestone.id, 'milestone')}
+                    >
+                      <History />
+                    </IconButton>
                   </Box>
                 </Box>
               </ListItem>
@@ -1759,6 +1735,7 @@ const pendingUsers: User[] = [
             startIcon={<Refresh />}
             onClick={() => {
               setLoading(true);
+              fetchPendingEscrow();
               setTimeout(() => setLoading(false), 1000);
             }}
           >
@@ -1789,7 +1766,7 @@ const pendingUsers: User[] = [
                 }}
               >
                 <ListItemAvatar>
-                  <Avatar sx={{ bgcolor: theme.palette.tertiary.main }}>
+                  <Avatar sx={{ bgcolor: theme.palette.tertiary ? theme.palette.tertiary.main : '#FF9800' }}>
                     <AttachMoney />
                   </Avatar>
                 </ListItemAvatar>
@@ -1816,15 +1793,25 @@ const pendingUsers: User[] = [
                   <Typography variant="subtitle1" sx={{ fontWeight: 'bold', mb: 1 }}>
                     ${escrow.amount.toLocaleString()}
                   </Typography>
-                  <Button
-                    variant="contained"
-                    color="primary"
-                    size="small"
-                    startIcon={<AttachMoney />}
-                    onClick={() => handleActionDialogOpen(escrow, 'approve')}
-                  >
-                    Release Funds
-                  </Button>
+                  <Box>
+                    <Button
+                      variant="contained"
+                      color="primary"
+                      size="small"
+                      startIcon={<AttachMoney />}
+                      onClick={() => handleActionDialogOpen(escrow, 'approve')}
+                    >
+                      Release Funds
+                    </Button>
+                    <IconButton 
+                      size="small" 
+                      color="primary"
+                      sx={{ ml: 1 }}
+                      onClick={() => fetchTransitionHistory(escrow.id, 'escrow')}
+                    >
+                      <History />
+                    </IconButton>
+                  </Box>
                 </Box>
               </ListItem>
             ))}
@@ -1879,6 +1866,7 @@ const pendingUsers: User[] = [
             startIcon={<Refresh />}
             onClick={() => {
               setLoading(true);
+              fetchPendingMessages();
               setTimeout(() => setLoading(false), 1000);
             }}
           >
@@ -2218,7 +2206,7 @@ const pendingUsers: User[] = [
                     <ListItemText primary="Investors" secondary="38%" />
                   </ListItem>
                   <ListItem>
-                    <Box sx={{ width: 10, height: 10, bgcolor: theme.palette.tertiary.main, borderRadius: '50%', mr: 1 }} />
+                    <Box sx={{ width: 10, height: 10, bgcolor: theme.palette.tertiary ? theme.palette.tertiary.main : '#FF9800', borderRadius: '50%', mr: 1 }} />
                     <ListItemText primary="Admins" secondary="20%" />
                   </ListItem>
                 </List>
@@ -2292,6 +2280,8 @@ const pendingUsers: User[] = [
       </Grid>
     );
   };
+  
+  // Main render function
   return (
     <AppLayout>
       <Typography
@@ -2331,8 +2321,8 @@ const pendingUsers: User[] = [
           <Tab label="Transaction Verification" icon={<Receipt />} iconPosition="start" />
           <Tab label="Messages" icon={<Message />} iconPosition="start" />
           <Tab label="Statistics" icon={<BarChart />} iconPosition="start" />
+          <Tab label="Audit Log" icon={<History />} iconPosition="start" />
         </Tabs>
-        
         {/* Dashboard Tab */}
         <TabPanel value={tabValue} index={0}>
           {renderDashboardTab()}
@@ -2371,6 +2361,17 @@ const pendingUsers: User[] = [
         {/* Statistics Tab */}
         <TabPanel value={tabValue} index={7}>
           {renderStatisticsTab()}
+        </TabPanel>
+        
+        {/* Audit Log Tab */}
+        <TabPanel value={tabValue} index={8}>
+          <Box sx={{ p: 3, textAlign: 'center' }}>
+            <Typography variant="h6">State Transition Audit Log</Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+              This tab would display a comprehensive log of all state transitions in the system,
+              including approvals, rejections, and other status changes.
+            </Typography>
+          </Box>
         </TabPanel>
       </Paper>
       
@@ -2477,6 +2478,7 @@ const pendingUsers: User[] = [
           </>
         )}
       </Dialog>
+      
       {/* Reply Dialog */}
       <Dialog
         open={replyDialogOpen}
@@ -2521,7 +2523,6 @@ const pendingUsers: User[] = [
           </>
         )}
       </Dialog>
-      
       {/* Document Preview Dialog */}
       <Dialog
         open={documentPreviewOpen}
@@ -2562,6 +2563,62 @@ const pendingUsers: User[] = [
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setDocumentPreviewOpen(false)}>Close</Button>
+        </DialogActions>
+      </Dialog>
+      
+      {/* State Transition History Dialog */}
+      <Dialog
+        open={transitionHistoryDialogOpen}
+        onClose={() => setTransitionHistoryDialogOpen(false)}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>State Transition History</DialogTitle>
+        <DialogContent>
+          {transitionHistory.length === 0 ? (
+            <Box sx={{ textAlign: 'center', p: 3 }}>
+              <Typography variant="body1" color="text.secondary">
+                No transition history found for this item.
+              </Typography>
+            </Box>
+          ) : (
+            <List>
+              {transitionHistory.map((transition: any) => (
+                <ListItem key={transition.id} divider>
+                  <ListItemAvatar>
+                    <Avatar>
+                      <History />
+                    </Avatar>
+                  </ListItemAvatar>
+                  <ListItemText
+                    primary={
+                      <Typography variant="subtitle1">
+                        {transition.fromState} → {transition.toState}
+                      </Typography>
+                    }
+                    secondary={
+                      <>
+                        <Typography variant="body2" color="text.secondary">
+                          {new Date(transition.timestamp).toLocaleString()}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          Performed by: {transition.performedBy}
+                        </Typography>
+                        {transition.reason && (
+                          <Typography variant="body2" color="text.secondary">
+                            Reason: {transition.reason}
+                          </Typography>
+                        )}
+                      </>
+                    }
+                  />
+                </ListItem>
+              ))}
+            </List>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setTransitionHistoryDialogOpen(false)}>Close</Button>
         </DialogActions>
       </Dialog>
       
@@ -2632,7 +2689,6 @@ const pendingUsers: User[] = [
           </Button>
         </DialogActions>
       </Dialog>
-      
       {/* Filter Menu */}
       <Menu
         anchorEl={filterMenuAnchorEl}
@@ -2740,6 +2796,21 @@ const pendingUsers: User[] = [
             <Visibility fontSize="small" color="primary" />
           </ListItemAvatar>
           <ListItemText primary="View Details" />
+        </MenuItem>
+        <MenuItem onClick={() => {
+          if (currentMenuItemId) {
+            const entityType = currentMenuItemId.startsWith('user_') ? 'user' :
+                      currentMenuItemId.startsWith('proj_') ? 'project' :
+                      currentMenuItemId.startsWith('mile_') ? 'milestone' :
+                      'escrow';
+            fetchTransitionHistory(currentMenuItemId, entityType as any);
+          }
+          handleMenuClose();
+        }}>
+          <ListItemAvatar>
+            <History fontSize="small" color="primary" />
+          </ListItemAvatar>
+          <ListItemText primary="View History" />
         </MenuItem>
       </Menu>
       
