@@ -21,6 +21,7 @@ import {
   RadioGroup,
   FormControlLabel,
   Radio,
+  SelectChangeEvent
 } from '@mui/material';
 import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -64,6 +65,22 @@ const Register: React.FC = () => {
       });
     }
   };
+  
+  // Handle role selection
+  const handleRoleChange = (event: SelectChangeEvent<string>) => {
+    setFormData({
+      ...formData,
+      role: event.target.value,
+    });
+    
+    if (formErrors.role) {
+      setFormErrors({
+        ...formErrors,
+        role: '',
+      });
+    }
+  };
+
   const validateForm = () => {
     const errors: Record<string, string> = {};
     
