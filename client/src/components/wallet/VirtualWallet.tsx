@@ -26,6 +26,7 @@ import {
   styled,
   useTheme,
   SelectChangeEvent,
+  Alert,
 } from '@mui/material';
 import {
   AccountBalanceWallet,
@@ -59,8 +60,25 @@ const GradientDivider = styled(Divider)(({ theme }) => ({
   marginBottom: theme.spacing(2),
 }));
 
-// Mock transaction data
-const mockTransactions = [
+// Define types for wallet and transactions
+type TransactionStatus = 'pending' | 'verifying' | 'completed' | 'rejected';
+type TransactionType = 'deposit' | 'withdrawal' | 'investment';
+type PaymentMethod = 'bank_transfer' | 'cryptocurrency' | 'credit_card';
+
+interface Transaction {
+  id: string;
+  type: TransactionType;
+  amount: number;
+  date: string;
+  status: TransactionStatus;
+  paymentMethod?: PaymentMethod;
+  proofOfPayment?: string;
+  project?: string;
+  projectId?: string;
+}
+
+// Mock transaction data with proper type assertions
+const mockTransactions: Transaction[] = [
   {
     id: 'txn_001',
     type: 'deposit',
@@ -98,23 +116,6 @@ const mockTransactions = [
     projectId: 'proj_002',
   },
 ];
-
-// Types for wallet and transactions
-type TransactionStatus = 'pending' | 'verifying' | 'completed' | 'rejected';
-type TransactionType = 'deposit' | 'withdrawal' | 'investment';
-type PaymentMethod = 'bank_transfer' | 'cryptocurrency' | 'credit_card';
-
-interface Transaction {
-  id: string;
-  type: TransactionType;
-  amount: number;
-  date: string;
-  status: TransactionStatus;
-  paymentMethod?: PaymentMethod;
-  proofOfPayment?: string;
-  project?: string;
-  projectId?: string;
-}
 
 interface VirtualWalletProps {
   userId: string;
