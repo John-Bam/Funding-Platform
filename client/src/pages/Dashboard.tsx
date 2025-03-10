@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Box,
   Grid,
@@ -18,6 +19,12 @@ import {
   useTheme,
   Chip,
   styled,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogContentText,
+  DialogActions,
+  TextField,
 } from '@mui/material';
 import {
   AttachMoney,
@@ -29,6 +36,8 @@ import {
   Visibility,
   People,
   Person as PersonIcon,
+  Reply,
+  Close,
 } from '@mui/icons-material';
 import {
   LineChart,
@@ -48,6 +57,7 @@ import {
 // Layout component
 import AppLayout from '../components/layout/AppLayout';
 import { useAuth } from '../contexts/AuthContext';
+import VirtualWallet from '../components/wallet/VirtualWallet';
 
 // Styled components
 const GlassCard = styled(Card)(({ theme }) => ({
@@ -151,11 +161,80 @@ const upcomingMilestones = [
     dueDate: '2025-04-22',
   },
 ];
+
+// Sample messages for the dashboard
+const recentMessages = [
+  {
+    id: 'msg_001',
+    from: 'Admin',
+    fromId: 'user_001',
+    subject: 'Your project has been approved',
+    content: 'Congratulations! Your project "Smart Agriculture System" has been approved and is now seeking funding.',
+    received: '2025-03-08',
+    read: false,
+  },
+  {
+    id: 'msg_002',
+    from: 'Sarah Johnson',
+    fromId: 'user_002',
+    subject: 'Question about your project',
+    content: 'Hello, I\'m interested in investing in your Clean Water Initiative. Could you provide more details about your implementation timeline?',
+    received: '2025-03-09',
+    read: true,
+  },
+  {
+    id: 'msg_003',
+    from: 'System',
+    fromId: 'system',
+    subject: 'Milestone deadline approaching',
+    content: 'Your milestone "Develop prototype" for Smart Agriculture System is due in 7 days. Please ensure you\'re on track to meet this deadline.',
+    received: '2025-03-10',
+    read: false,
+  },
+];
 const Dashboard: React.FC = () => {
   const theme = useTheme();
+  const navigate = useNavigate();
   const { user } = useAuth();
+  
+  const [messageDialogOpen, setMessageDialogOpen] = useState(false);
+  const [replyDialogOpen, setReplyDialogOpen] = useState(false);
+  const [selectedMessage, setSelectedMessage] = useState<any>(null);
+  const [replyContent, setReplyContent] = useState('');
 
   const COLORS = [theme.palette.primary.main, theme.palette.secondary.main, theme.palette.tertiary.main];
+
+  const handleMessageOpen = (message: any) => {
+    setSelectedMessage(message);
+    setMessageDialogOpen(true);
+  };
+  
+  const handleMessageClose = () => {
+    setMessageDialogOpen(false);
+    setSelectedMessage(null);
+  };
+  
+  const handleReplyOpen = () => {
+    setMessageDialogOpen(false);
+    setReplyDialogOpen(true);
+  };
+  
+  const handleReplyClose = () => {
+    setReplyDialogOpen(false);
+    setReplyContent('');
+  };
+  
+  const handleSendReply = () => {
+    if (!replyContent.trim() || !selectedMessage) return;
+    
+    // In a real app, this would call an API to send the message
+    console.log('Replying to:', selectedMessage.from, 'Content:', replyContent);
+    
+    // Close dialog and reset state
+    setReplyDialogOpen(false);
+    setReplyContent('');
+    setSelectedMessage(null);
+  };
 
   // Content based on user role
   const renderRoleSpecificContent = () => {
@@ -171,7 +250,6 @@ const Dashboard: React.FC = () => {
         return null;
     }
   };
-
   const renderInnovatorDashboard = () => (
     <Grid container spacing={3}>
       {/* Stats */}
@@ -257,6 +335,70 @@ const Dashboard: React.FC = () => {
         </StatCard>
       </Grid>
 
+      {/* Messages section */}
+      <Grid item xs={12}>
+        <GlassCard>
+          <CardHeader 
+            title="Recent Messages" 
+            action={
+              <Button variant="outlined" size="small">View All</Button>
+            }
+          />
+          <GradientDivider />
+          <CardContent sx={{ maxHeight: 250, overflow: 'auto' }}>
+            <List>
+              {recentMessages.map((message) => (
+                <ListItem
+                  key={message.id}
+                  sx={{
+                    mb: 1,
+                    backgroundColor: message.read ? 'rgba(255, 255, 255, 0.03)' : 'rgba(30, 136, 229, 0.08)',
+                    borderRadius: 1,
+                    borderLeft: message.read ? 'none' : `4px solid ${theme.palette.primary.main}`,
+                    cursor: 'pointer',
+                  }}
+                  onClick={() => handleMessageOpen(message)}
+                >
+                  <ListItemAvatar>
+                    <Avatar sx={{ bgcolor: theme.palette.primary.main }}>
+                      {message.from.charAt(0)}
+                    </Avatar>
+                  </ListItemAvatar>
+                  <ListItemText
+                    primary={
+                      <Box display="flex" justifyContent="space-between">
+                        <Typography variant="subtitle2" fontWeight={message.read ? 'normal' : 'bold'}>
+                          {message.subject}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {new Date(message.received).toLocaleDateString()}
+                        </Typography>
+                      </Box>
+                    }
+                    secondary={
+                      <Typography 
+                        variant="body2" 
+                        color="text.secondary" 
+                        sx={{ 
+                          fontWeight: message.read ? 'normal' : 'medium',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          display: '-webkit-box',
+                          WebkitLineClamp: 2,
+                          WebkitBoxOrient: 'vertical'
+                        }}
+                      >
+                        {message.content}
+                      </Typography>
+                    }
+                  />
+                </ListItem>
+              ))}
+            </List>
+          </CardContent>
+        </GlassCard>
+      </Grid>
+
       {/* Funding Chart */}
       <Grid item xs={12} md={8}>
         <GlassCard>
@@ -325,13 +467,19 @@ const Dashboard: React.FC = () => {
           </CardContent>
         </GlassCard>
       </Grid>
+      
       {/* Project List */}
       <Grid item xs={12}>
         <GlassCard>
           <CardHeader
             title="Recent Projects"
             action={
-              <Button variant="contained" color="primary" size="small">
+              <Button 
+                variant="contained" 
+                color="primary" 
+                size="small"
+                onClick={() => navigate('/projects/create')}
+              >
                 Create New
               </Button>
             }
@@ -371,6 +519,7 @@ const Dashboard: React.FC = () => {
                         color="primary"
                         fullWidth
                         startIcon={<Visibility />}
+                        onClick={() => navigate(`/projects/${project.id}`)}
                       >
                         View Details
                       </Button>
@@ -384,9 +533,13 @@ const Dashboard: React.FC = () => {
       </Grid>
     </Grid>
   );
-
   const renderInvestorDashboard = () => (
     <Grid container spacing={3}>
+      {/* Virtual Wallet Component */}
+      <Grid item xs={12}>
+        <VirtualWallet userId={user?.user_id || ''} />
+      </Grid>
+
       {/* Stats */}
       <Grid item xs={12} md={4}>
         <StatCard>
@@ -469,40 +622,71 @@ const Dashboard: React.FC = () => {
           </Box>
         </StatCard>
       </Grid>
-      
-      {/* Project Status */}
-      <Grid item xs={12} md={5}>
+
+      {/* Messages section */}
+      <Grid item xs={12}>
         <GlassCard>
-          <CardHeader title="Portfolio Status" />
+          <CardHeader 
+            title="Recent Messages" 
+            action={
+              <Button variant="outlined" size="small">View All</Button>
+            }
+          />
           <GradientDivider />
-          <CardContent sx={{ height: 300, display: 'flex', justifyContent: 'center' }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={projectStatusData}
-                  cx="50%"
-                  cy="50%"
-                  labelLine={false}
-                  outerRadius={100}
-                  fill="#8884d8"
-                  dataKey="value"
-                  label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                >
-                  {projectStatusData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: theme.palette.background.paper,
-                    borderColor: theme.palette.divider,
+          <CardContent sx={{ maxHeight: 250, overflow: 'auto' }}>
+            <List>
+              {recentMessages.map((message) => (
+                <ListItem
+                  key={message.id}
+                  sx={{
+                    mb: 1,
+                    backgroundColor: message.read ? 'rgba(255, 255, 255, 0.03)' : 'rgba(30, 136, 229, 0.08)',
+                    borderRadius: 1,
+                    borderLeft: message.read ? 'none' : `4px solid ${theme.palette.primary.main}`,
+                    cursor: 'pointer',
                   }}
-                />
-              </PieChart>
-            </ResponsiveContainer>
+                  onClick={() => handleMessageOpen(message)}
+                >
+                  <ListItemAvatar>
+                    <Avatar sx={{ bgcolor: theme.palette.primary.main }}>
+                      {message.from.charAt(0)}
+                    </Avatar>
+                  </ListItemAvatar>
+                  <ListItemText
+                    primary={
+                      <Box display="flex" justifyContent="space-between">
+                        <Typography variant="subtitle2" fontWeight={message.read ? 'normal' : 'bold'}>
+                          {message.subject}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {new Date(message.received).toLocaleDateString()}
+                        </Typography>
+                      </Box>
+                    }
+                    secondary={
+                      <Typography 
+                        variant="body2" 
+                        color="text.secondary" 
+                        sx={{ 
+                          fontWeight: message.read ? 'normal' : 'medium',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          display: '-webkit-box',
+                          WebkitLineClamp: 2,
+                          WebkitBoxOrient: 'vertical'
+                        }}
+                      >
+                        {message.content}
+                      </Typography>
+                    }
+                  />
+                </ListItem>
+              ))}
+            </List>
           </CardContent>
         </GlassCard>
       </Grid>
+      
       {/* Project Status */}
       <Grid item xs={12} md={5}>
         <GlassCard>
@@ -568,7 +752,12 @@ const Dashboard: React.FC = () => {
           <CardHeader
             title="Investment Opportunities"
             action={
-              <Button variant="contained" color="primary" size="small">
+              <Button 
+                variant="contained" 
+                color="primary" 
+                size="small"
+                onClick={() => navigate('/projects')}
+              >
                 Browse All
               </Button>
             }
@@ -608,6 +797,7 @@ const Dashboard: React.FC = () => {
                         color="secondary"
                         fullWidth
                         startIcon={<AttachMoney />}
+                        onClick={() => navigate(`/projects/${project.id}`)}
                       >
                         Invest
                       </Button>
@@ -731,6 +921,70 @@ const Dashboard: React.FC = () => {
             </Typography>
           </Box>
         </StatCard>
+      </Grid>
+
+      {/* Messages section */}
+      <Grid item xs={12}>
+        <GlassCard>
+          <CardHeader 
+            title="Recent Messages" 
+            action={
+              <Button variant="outlined" size="small">View All</Button>
+            }
+          />
+          <GradientDivider />
+          <CardContent sx={{ maxHeight: 250, overflow: 'auto' }}>
+            <List>
+              {recentMessages.map((message) => (
+                <ListItem
+                  key={message.id}
+                  sx={{
+                    mb: 1,
+                    backgroundColor: message.read ? 'rgba(255, 255, 255, 0.03)' : 'rgba(30, 136, 229, 0.08)',
+                    borderRadius: 1,
+                    borderLeft: message.read ? 'none' : `4px solid ${theme.palette.primary.main}`,
+                    cursor: 'pointer',
+                  }}
+                  onClick={() => handleMessageOpen(message)}
+                >
+                  <ListItemAvatar>
+                    <Avatar sx={{ bgcolor: theme.palette.primary.main }}>
+                      {message.from.charAt(0)}
+                    </Avatar>
+                  </ListItemAvatar>
+                  <ListItemText
+                    primary={
+                      <Box display="flex" justifyContent="space-between">
+                        <Typography variant="subtitle2" fontWeight={message.read ? 'normal' : 'bold'}>
+                          {message.subject}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {new Date(message.received).toLocaleDateString()}
+                        </Typography>
+                      </Box>
+                    }
+                    secondary={
+                      <Typography 
+                        variant="body2" 
+                        color="text.secondary" 
+                        sx={{ 
+                          fontWeight: message.read ? 'normal' : 'medium',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          display: '-webkit-box',
+                          WebkitLineClamp: 2,
+                          WebkitBoxOrient: 'vertical'
+                        }}
+                      >
+                        {message.content}
+                      </Typography>
+                    }
+                  />
+                </ListItem>
+              ))}
+            </List>
+          </CardContent>
+        </GlassCard>
       </Grid>
 
       {/* Admin Charts */}
@@ -906,7 +1160,6 @@ const Dashboard: React.FC = () => {
       </Grid>
     </Grid>
   );
-
   return (
     <AppLayout>
       <Typography
@@ -923,6 +1176,106 @@ const Dashboard: React.FC = () => {
       </Typography>
 
       {renderRoleSpecificContent()}
+
+      {/* Message Dialog */}
+      <Dialog 
+        open={messageDialogOpen} 
+        onClose={handleMessageClose}
+        maxWidth="sm"
+        fullWidth
+      >
+        {selectedMessage && (
+          <>
+            <DialogTitle>
+              <Box display="flex" justifyContent="space-between" alignItems="center">
+                {selectedMessage.subject}
+                <IconButton onClick={handleMessageClose} size="small">
+                  <Close />
+                </IconButton>
+              </Box>
+            </DialogTitle>
+            <DialogContent>
+              <Box display="flex" alignItems="center" mb={2}>
+                <Avatar sx={{ bgcolor: theme.palette.primary.main, mr: 2 }}>
+                  {selectedMessage.from.charAt(0)}
+                </Avatar>
+                <Box>
+                  <Typography variant="subtitle1">
+                    {selectedMessage.from}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    {new Date(selectedMessage.received).toLocaleString()}
+                  </Typography>
+                </Box>
+              </Box>
+              <Divider sx={{ mb: 2 }} />
+              <Typography variant="body1" sx={{ whiteSpace: 'pre-line' }}>
+                {selectedMessage.content}
+              </Typography>
+            </DialogContent>
+            <DialogActions>
+              <Button 
+                variant="contained" 
+                color="primary" 
+                startIcon={<Reply />}
+                onClick={handleReplyOpen}
+              >
+                Reply
+              </Button>
+            </DialogActions>
+          </>
+        )}
+      </Dialog>
+
+      {/* Reply Dialog */}
+      <Dialog 
+        open={replyDialogOpen} 
+        onClose={handleReplyClose}
+        maxWidth="sm"
+        fullWidth
+      >
+        {selectedMessage && (
+          <>
+            <DialogTitle>
+              <Box display="flex" justifyContent="space-between" alignItems="center">
+                Reply to: {selectedMessage.subject}
+                <IconButton onClick={handleReplyClose} size="small">
+                  <Close />
+                </IconButton>
+              </Box>
+            </DialogTitle>
+            <DialogContent>
+              <Box display="flex" mb={2}>
+                <Typography variant="body2" color="text.secondary">
+                  To: {selectedMessage.from} ({selectedMessage.fromId})
+                </Typography>
+              </Box>
+              <TextField
+                fullWidth
+                multiline
+                rows={8}
+                placeholder="Type your reply here..."
+                value={replyContent}
+                onChange={(e) => setReplyContent(e.target.value)}
+                variant="outlined"
+              />
+            </DialogContent>
+            <DialogActions>
+              <Button onClick={handleReplyClose}>
+                Cancel
+              </Button>
+              <Button 
+                variant="contained" 
+                color="primary" 
+                onClick={handleSendReply}
+                disabled={!replyContent.trim()}
+              >
+                Send
+              </Button>
+            </DialogActions>
+          </>
+        )}
+      </Dialog>
     </AppLayout>
   );
 };

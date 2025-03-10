@@ -37,9 +37,12 @@ import {
   MoreVert,
   Assignment,
   Visibility,
+  Receipt,
+  Message,
 } from '@mui/icons-material';
 import AppLayout from '../components/layout/AppLayout';
 import { useAuth } from '../contexts/AuthContext';
+import TransactionVerificationPanel from '../components/admin/TransactionVerificationPanel';
 
 // Styled components
 const GradientDivider = styled(Divider)(({ theme }) => ({
@@ -157,6 +160,37 @@ const pendingEscrow = [
   },
 ];
 
+// Mock messages that need admin attention
+const pendingMessages = [
+  {
+    id: 'msg_001',
+    from: 'John Doe',
+    fromId: 'user_005',
+    subject: 'Question about milestone verification',
+    content: 'I submitted my milestone proof but haven\'t heard back for over a week. Can you please check the status?',
+    received: '2025-03-08',
+    priority: 'high',
+  },
+  {
+    id: 'msg_002',
+    from: 'Michael Brown',
+    fromId: 'user_003',
+    subject: 'Issue with payment verification',
+    content: 'My bank transfer was completed 3 days ago but my wallet still shows as pending. Reference number: BTR-82930.',
+    received: '2025-03-09',
+    priority: 'medium',
+  },
+  {
+    id: 'msg_003',
+    from: 'Emily Chen',
+    fromId: 'user_004',
+    subject: 'Request for project deadline extension',
+    content: 'Due to unexpected supply chain issues, we need to request a two-week extension on our current milestone.',
+    received: '2025-03-10',
+    priority: 'low',
+  },
+];
+
 const AdminPanel: React.FC = () => {
   const theme = useTheme();
   const { user } = useAuth();
@@ -165,6 +199,8 @@ const AdminPanel: React.FC = () => {
   const [actionDialogOpen, setActionDialogOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<any>(null);
   const [actionType, setActionType] = useState<'approve' | 'reject'>('approve');
+  const [messageDialogOpen, setMessageDialogOpen] = useState(false);
+  const [selectedMessage, setSelectedMessage] = useState<any>(null);
   
   // Menu state
   const [menuAnchorEl, setMenuAnchorEl] = useState<null | HTMLElement>(null);
@@ -201,6 +237,16 @@ const AdminPanel: React.FC = () => {
     console.log(`${actionType === 'approve' ? 'Approved' : 'Rejected'} item:`, selectedItem);
     handleActionDialogClose();
   };
+
+  const handleMessageOpen = (message: any) => {
+    setSelectedMessage(message);
+    setMessageDialogOpen(true);
+  };
+  
+  const handleMessageClose = () => {
+    setMessageDialogOpen(false);
+    setSelectedMessage(null);
+  };
   
   return (
     <AppLayout>
@@ -236,6 +282,8 @@ const AdminPanel: React.FC = () => {
           <Tab label="Project Approval" />
           <Tab label="Milestone Verification" />
           <Tab label="Escrow Management" />
+          <Tab label="Transaction Verification" />
+          <Tab label="Messages" />
         </Tabs>
         
         {/* User Verification Tab */}
@@ -511,6 +559,77 @@ const AdminPanel: React.FC = () => {
             ))}
           </List>
         </TabPanel>
+        
+        {/* Transaction Verification Tab */}
+        <TabPanel value={tabValue} index={4}>
+          <TransactionVerificationPanel />
+        </TabPanel>
+
+        {/* Messages Tab */}
+        <TabPanel value={tabValue} index={5}>
+          <List>
+            {pendingMessages.map((message) => (
+              <ListItem
+                key={message.id}
+                sx={{
+                  mb: 2,
+                  bgcolor: 'rgba(255, 255, 255, 0.03)',
+                  borderRadius: 2,
+                  boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+                  cursor: 'pointer',
+                }}
+                onClick={() => handleMessageOpen(message)}
+              >
+                <ListItemAvatar>
+                  <Avatar sx={{ 
+                    bgcolor: message.priority === 'high' 
+                      ? theme.palette.error.main 
+                      : message.priority === 'medium'
+                      ? theme.palette.warning.main
+                      : theme.palette.info.main 
+                  }}>
+                    <Message />
+                  </Avatar>
+                </ListItemAvatar>
+                <ListItemText
+                  primary={
+                    <Box display="flex" justifyContent="space-between">
+                      <Typography variant="subtitle1" fontWeight="medium">
+                        {message.subject}
+                      </Typography>
+                      <Chip 
+                        label={message.priority} 
+                        size="small"
+                        color={
+                          message.priority === 'high' 
+                            ? 'error' 
+                            : message.priority === 'medium'
+                            ? 'warning'
+                            : 'info'
+                        }
+                      />
+                    </Box>
+                  }
+                  secondary={
+                    <>
+                      <Typography variant="body2" color="text.secondary" noWrap>
+                        {message.content.substring(0, 80)}...
+                      </Typography>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 1 }}>
+                        <Typography variant="caption" color="text.secondary">
+                          From: {message.from}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {new Date(message.received).toLocaleDateString()}
+                        </Typography>
+                      </Box>
+                    </>
+                  }
+                />
+              </ListItem>
+            ))}
+          </List>
+        </TabPanel>
       </Paper>
       
       {/* Action Confirmation Dialog */}
@@ -539,6 +658,56 @@ const AdminPanel: React.FC = () => {
             {actionType === 'approve' ? 'Approve' : 'Reject'}
           </Button>
         </DialogActions>
+      </Dialog>
+      
+      {/* Message Dialog */}
+      <Dialog
+        open={messageDialogOpen}
+        onClose={handleMessageClose}
+        maxWidth="sm"
+        fullWidth
+      >
+        {selectedMessage && (
+          <>
+            <DialogTitle>
+              <Box display="flex" justifyContent="space-between" alignItems="center">
+                {selectedMessage.subject}
+                <Chip 
+                  label={selectedMessage.priority} 
+                  size="small"
+                  color={
+                    selectedMessage.priority === 'high' 
+                      ? 'error' 
+                      : selectedMessage.priority === 'medium'
+                      ? 'warning'
+                      : 'info'
+                  }
+                />
+              </Box>
+            </DialogTitle>
+            <DialogContent>
+              <Typography variant="body2" sx={{ mb: 2 }}>
+                <strong>From:</strong> {selectedMessage.from} ({selectedMessage.fromId})
+              </Typography>
+              <Typography variant="body2" sx={{ mb: 2 }}>
+                <strong>Received:</strong> {new Date(selectedMessage.received).toLocaleString()}
+              </Typography>
+              <Divider sx={{ mb: 2 }} />
+              <Typography variant="body1" sx={{ whiteSpace: 'pre-line' }}>
+                {selectedMessage.content}
+              </Typography>
+            </DialogContent>
+            <DialogActions>
+              <Button onClick={handleMessageClose}>Close</Button>
+              <Button 
+                variant="contained" 
+                color="primary"
+              >
+                Reply
+              </Button>
+            </DialogActions>
+          </>
+        )}
       </Dialog>
       
       {/* Item Action Menu */}

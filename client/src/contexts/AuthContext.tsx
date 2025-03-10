@@ -41,6 +41,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Base API URL with fallback
+  const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5050';
+
   // Check if user is already logged in on mount
   useEffect(() => {
     const checkAuth = async () => {
@@ -55,7 +58,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
           
           // Fetch user data
-          const response = await axios.get(`${process.env.REACT_APP_API_URL}/api/users/me`);
+          const response = await axios.get(`${apiUrl}/api/users/me`);
           
           if (response.data) {
             setUser(response.data);
@@ -71,13 +74,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
     
     checkAuth();
-  }, []);
+  }, [apiUrl]);
 
   // Login function
   const login = async (email: string, password: string) => {
     setError(null);
     try {
-      const response = await axios.post(`${process.env.REACT_APP_API_URL}/api/auth/login`, {
+      const response = await axios.post(`${apiUrl}/api/auth/login`, {
         email,
         password,
       });
@@ -91,6 +94,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Set the user
       setUser(response.data.user);
     } catch (err: any) {
+      console.error('Login error:', err);
       setError(err.response?.data?.message || 'An error occurred during login');
       throw err;
     }
@@ -100,9 +104,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const register = async (userData: any) => {
     setError(null);
     try {
-      await axios.post(`${process.env.REACT_APP_API_URL}/api/auth/register`, userData);
+      await axios.post(`${apiUrl}/api/auth/register`, userData);
       // Note: We don't automatically log the user in after registration because they need to be approved
     } catch (err: any) {
+      console.error('Registration error:', err);
       setError(err.response?.data?.message || 'An error occurred during registration');
       throw err;
     }

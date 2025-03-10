@@ -186,7 +186,7 @@ CREATE TABLE audit_logs (
   ip_address VARCHAR(50)
 );
 
--- Create initial admin user (password: admin123)
+-- Create initial admin user (password: Password123)
 INSERT INTO users (
   email, 
   password_hash, 
@@ -196,9 +196,132 @@ INSERT INTO users (
   status
 ) VALUES (
   'admin@innocapforge.com',
-  '$2a$10$rJMQ88GV1tSfnAvQhye1AOy.pjhbGYGQRnJQj6sNOeP65rSRImn0i', -- bcrypt hash for 'admin123'
+  '$2b$10$ukrtPFHt9mfz44oyPSJ7XeG57WpqMC8vNsndROZ0U91aTUX5lYzgu', -- bcrypt hash for 'Password123'
   'System Administrator',
   '1980-01-01',
   'Admin',
   'Verified'
+);
+
+-- Create Wallets Table
+CREATE TABLE wallets (
+  wallet_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID NOT NULL REFERENCES users(user_id),
+  balance DECIMAL(15, 2) DEFAULT 0 NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Create Transaction Types Lookup Table
+CREATE TABLE transaction_types (
+  type_id SERIAL PRIMARY KEY,
+  type_name VARCHAR(50) NOT NULL UNIQUE
+);
+
+-- Insert transaction types
+INSERT INTO transaction_types (type_name)
+VALUES 
+  ('deposit'),
+  ('withdrawal'),
+  ('investment'),
+  ('escrow_release'),
+  ('refund');
+
+-- Create Transaction Status Lookup Table
+CREATE TABLE transaction_status (
+  status_id SERIAL PRIMARY KEY,
+  status_name VARCHAR(50) NOT NULL UNIQUE
+);
+
+-- Insert status types
+INSERT INTO transaction_status (status_name)
+VALUES 
+  ('pending'),
+  ('verifying'),
+  ('completed'),
+  ('rejected');
+
+-- Create Payment Methods Lookup Table
+CREATE TABLE payment_methods (
+  method_id SERIAL PRIMARY KEY,
+  method_name VARCHAR(50) NOT NULL UNIQUE
+);
+
+-- Insert payment methods
+INSERT INTO payment_methods (method_name)
+VALUES 
+  ('bank_transfer'),
+  ('cryptocurrency'),
+  ('credit_card');
+
+-- Create Transactions Table
+CREATE TABLE transactions (
+  transaction_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  wallet_id UUID NOT NULL REFERENCES wallets(wallet_id),
+  type_id INTEGER NOT NULL REFERENCES transaction_types(type_id),
+  status_id INTEGER NOT NULL REFERENCES transaction_status(status_id),
+  amount DECIMAL(15, 2) NOT NULL,
+  reference_id UUID NULL, -- For project_id or milestone_id references
+  payment_method_id INTEGER NULL REFERENCES payment_methods(method_id),
+  proof_document_path VARCHAR(255) NULL,
+  notes TEXT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  verified_by UUID NULL REFERENCES users(user_id), -- Admin/EscrowManager who verified the transaction
+  verified_at TIMESTAMP NULL
+);
+
+-- Create function to update wallet balance
+CREATE OR REPLACE FUNCTION update_wallet_balance()
+RETURNS TRIGGER AS $$
+BEGIN
+    -- Only process when the status is changing to completed (status_id = 3)
+    IF (NEW.status_id = 3 AND OLD.status_id != 3) THEN
+        -- For deposits and escrow releases, increase wallet balance
+        IF EXISTS (
+            SELECT 1 FROM transaction_types tt 
+            WHERE tt.type_id = NEW.type_id 
+            AND tt.type_name IN ('deposit', 'escrow_release', 'refund')
+        ) THEN
+            UPDATE wallets 
+            SET 
+                balance = balance + NEW.amount,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE wallet_id = NEW.wallet_id;
+        -- For withdrawals and investments, decrease wallet balance
+        ELSIF EXISTS (
+            SELECT 1 FROM transaction_types tt 
+            WHERE tt.type_id = NEW.type_id 
+            AND tt.type_name IN ('withdrawal', 'investment')
+        ) THEN
+            UPDATE wallets 
+            SET 
+                balance = balance - NEW.amount,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE wallet_id = NEW.wallet_id;
+        END IF;
+    END IF;
+    
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Create trigger for updating wallet balance
+CREATE TRIGGER update_wallet_balance_trigger
+AFTER UPDATE ON transactions
+FOR EACH ROW
+EXECUTE FUNCTION update_wallet_balance();
+
+-- Create indexes for faster queries
+CREATE INDEX idx_transactions_wallet_id ON transactions(wallet_id);
+CREATE INDEX idx_transactions_status_id ON transactions(status_id);
+CREATE INDEX idx_transactions_type_id ON transactions(type_id);
+CREATE INDEX idx_transactions_created_at ON transactions(created_at);
+
+-- Add a wallet for each existing investor automatically
+INSERT INTO wallets (user_id)
+SELECT user_id FROM users 
+WHERE role = 'Investor' 
+AND NOT EXISTS (
+    SELECT 1 FROM wallets w WHERE w.user_id = users.user_id
 );
