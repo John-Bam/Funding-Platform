@@ -1,13 +1,13 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
-import pool from '../config/database';
+import config from '../config/config';
 
-// Extend Express Request type to include user property
+// Extend Request type to include user
 declare global {
   namespace Express {
     interface Request {
       user?: {
-        user_id: string;
+        userId: string;
         email: string;
         role: string;
       };
@@ -15,72 +15,63 @@ declare global {
   }
 }
 
-/**
- * Middleware to authenticate JWT tokens
- */
-export const authenticate = async (
-  req: Request,
-  res: Response,
-  next: NextFunction
-): Promise<void> => {
+// Authentication middleware
+export const authenticate = (req: Request, res: Response, next: NextFunction) => {
   try {
     // Get token from header
     const authHeader = req.headers.authorization;
     
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      res.status(401).json({ message: 'Authorization token required' });
-      return;
+    if (!authHeader?.startsWith('Bearer ')) {
+      return res.status(401).json({
+        success: false,
+        message: 'No token provided'
+      });
     }
     
     const token = authHeader.split(' ')[1];
     
     // Verify token
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-jwt-secret') as {
-      user_id: string;
-      email: string;
-      role: string;
-    };
-    
-    // Check if user still exists and is verified
-    const result = await pool.query(
-      'SELECT status FROM users WHERE user_id = $1', 
-      [decoded.user_id]
-    );
-    
-    if (result.rows.length === 0) {
-      res.status(401).json({ message: 'User no longer exists' });
-      return;
-    }
-    
-    if (result.rows[0].status !== 'Verified') {
-      res.status(401).json({ message: 'User account is not verified' });
-      return;
-    }
-    
-    // Add user info to request
-    req.user = decoded;
-    
-    next();
+    jwt.verify(token, config.jwt.secret, (err, decoded: any) => {
+      if (err) {
+        return res.status(401).json({
+          success: false,
+          message: 'Invalid token'
+        });
+      }
+      
+      // Attach user info to request
+      req.user = {
+        userId: decoded.userId,
+        email: decoded.email,
+        role: decoded.role
+      };
+      
+      next();
+    });
   } catch (error) {
     console.error('Authentication error:', error);
-    res.status(401).json({ message: 'Invalid or expired token' });
-    return;
+    return res.status(500).json({
+      success: false,
+      message: 'Authentication error'
+    });
   }
 };
 
-/**
- * Middleware to authorize by role
- */
+// Role-based authorization middleware
 export const authorize = (roles: string[]) => {
-  return (req: Request, res: Response, next: NextFunction): void => {
+  return (req: Request, res: Response, next: NextFunction) => {
     if (!req.user) {
-      res.status(401).json({ message: 'Unauthorized' });
-      return;
+      return res.status(401).json({
+        success: false,
+        message: 'User not authenticated'
+      });
     }
     
     if (!roles.includes(req.user.role)) {
-      res.status(403).json({ message: 'Forbidden: Insufficient permissions' });
-      return;
+      return res.status(403).json({
+        success: false,
+        message: 'Unauthorized access'
+      });
     }
     
     next();

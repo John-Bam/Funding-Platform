@@ -1,20 +1,14 @@
 import { Pool } from 'pg';
-import { config } from 'dotenv';
-import { join } from 'path';
+import config from './config';
 
-// Load environment variables
-config({ path: join(__dirname, '..', '..', '.env') });
-
-// Create a new PostgreSQL connection pool
+// Create PostgreSQL connection pool
 const pool = new Pool({
-  user: process.env.DB_USER || 'postgres',
-  host: process.env.DB_HOST || 'localhost',
-  database: process.env.DB_NAME || 'funding_platform',
-  password: process.env.DB_PASSWORD || 'password',
-  port: parseInt(process.env.DB_PORT || '5432'),
-  max: 20, // Max number of clients in the pool
-  idleTimeoutMillis: 30000, // How long a client is allowed to remain idle before being closed
-  connectionTimeoutMillis: 2000, // How long to wait before timing out when connecting a new client
+  host: config.database.host,
+  port: config.database.port,
+  database: config.database.name,
+  user: config.database.user,
+  password: config.database.password,
+  max: config.database.connectionLimit
 });
 
 // Log connection status
@@ -27,4 +21,11 @@ pool.on('error', (err) => {
   process.exit(-1);
 });
 
-export default pool;
+// Export query functions
+export default {
+  query: (text: string, params: any[] = []) => pool.query(text, params),
+  getClient: async () => {
+    const client = await pool.connect();
+    return client;
+  }
+};

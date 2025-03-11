@@ -1,6 +1,6 @@
 // server/middleware/auth.js
 const jwt = require('jsonwebtoken');
-const db = require('../config/db');
+const db = require('../config/database');
 
 module.exports = async (req, res, next) => {
   try {

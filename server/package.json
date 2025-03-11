@@ -3,11 +3,11 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "nodemon --exec ts-node src/index.ts",
+    "start": "node dist/server.js",
+    "dev": "nodemon src/server.ts",
     "build": "tsc",
-    "start": "node dist/index.js"
-  },
+    "migrate": "psql -U postgres -p 5050 -d forge_db -f database/migrations/001_initial_schema.sql"
+  }
   "keywords": [],
   "author": "",
   "license": "ISC",
@@ -21,16 +21,18 @@
     "helmet": "^8.0.0",
     "jsonwebtoken": "^9.0.2",
     "morgan": "^1.10.0",
-    "pg": "^8.13.3",
+    "multer": "^1.4.5-lts.1",
+    "pg": "^8.14.0",
     "uuid": "^11.1.0"
   },
   "devDependencies": {
     "@types/bcrypt": "^5.0.2",
     "@types/cors": "^2.8.17",
     "@types/express": "^5.0.0",
+    "@types/helmet": "^0.0.48",
     "@types/jsonwebtoken": "^9.0.9",
     "@types/morgan": "^1.9.9",
-    "@types/node": "^22.13.10",
+    "@types/multer": "^1.4.12",
     "@types/pg": "^8.11.11",
     "@types/uuid": "^10.0.0",
     "nodemon": "^3.1.9",
