@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -20,6 +20,9 @@ import {
   Pagination,
   useTheme,
   styled,
+  CircularProgress,
+  Alert,
+  SelectChangeEvent,
 } from '@mui/material';
 import {
   Search,
@@ -33,6 +36,8 @@ import {
 } from '@mui/icons-material';
 import AppLayout from '../components/layout/AppLayout';
 import { useAuth } from '../contexts/AuthContext';
+import { projectService } from '../services/api';
+import { Project } from '../types/types';
 
 // Styled components
 const GradientDivider = styled(Divider)(({ theme }) => ({
@@ -41,92 +46,15 @@ const GradientDivider = styled(Divider)(({ theme }) => ({
   marginBottom: theme.spacing(2),
 }));
 
-// Sample data for projects
-const sampleProjects = [
-  {
-    id: 'proj_001',
-    title: 'Smart Agriculture System',
-    description: 'Sustainable farming using IoT sensors and AI for crop optimization',
-    category: 'AgriTech',
-    funding_goal: 50000,
-    current_funding: 10000,
-    status: 'seeking_funding',
-    innovator: 'John Doe',
-    creation_date: '2025-02-15',
-    image: '/static/images/projects/agriculture.jpg',
-    sdgs: ['SDG 2', 'SDG 12'],
-  },
-  {
-    id: 'proj_002',
-    title: 'Clean Water Initiative',
-    description: 'Water purification technology for rural communities using renewable energy',
-    category: 'CleanTech',
-    funding_goal: 75000,
-    current_funding: 56250,
-    status: 'partially_funded',
-    innovator: 'Sarah Johnson',
-    creation_date: '2025-01-20',
-    image: '/static/images/projects/water.jpg',
-    sdgs: ['SDG 6', 'SDG 7'],
-  },
-  {
-    id: 'proj_003',
-    title: 'Solar Micro-Grids',
-    description: 'Decentralized solar power solutions for off-grid communities',
-    category: 'Energy',
-    funding_goal: 120000,
-    current_funding: 120000,
-    status: 'fully_funded',
-    innovator: 'Michael Brown',
-    creation_date: '2025-01-05',
-    image: '/static/images/projects/solar.jpg',
-    sdgs: ['SDG 7', 'SDG 13'],
-  },
-  {
-    id: 'proj_004',
-    title: 'Healthcare AI Diagnostics',
-    description: 'Machine learning platform for early disease detection in low-resource settings',
-    category: 'HealthTech',
-    funding_goal: 200000,
-    current_funding: 80000,
-    status: 'partially_funded',
-    innovator: 'Emily Chen',
-    creation_date: '2025-02-28',
-    image: '/static/images/projects/healthcare.jpg',
-    sdgs: ['SDG 3', 'SDG 10'],
-  },
-  {
-    id: 'proj_005',
-    title: 'Waste to Energy Converter',
-    description: 'Technology that transforms organic waste into biogas for cooking and electricity',
-    category: 'CleanTech',
-    funding_goal: 90000,
-    current_funding: 27000,
-    status: 'seeking_funding',
-    innovator: 'Robert Miller',
-    creation_date: '2025-03-01',
-    image: '/static/images/projects/waste.jpg',
-    sdgs: ['SDG 7', 'SDG 12'],
-  },
-  {
-    id: 'proj_006',
-    title: 'Digital Education Platform',
-    description: 'Offline-capable learning software for schools without reliable internet',
-    category: 'EdTech',
-    funding_goal: 65000,
-    current_funding: 65000,
-    status: 'fully_funded',
-    innovator: 'Jessica Williams',
-    creation_date: '2025-01-10',
-    image: '/static/images/projects/education.jpg',
-    sdgs: ['SDG 4', 'SDG 10'],
-  },
-];
-
 const Projects: React.FC = () => {
   const theme = useTheme();
   const navigate = useNavigate();
   const { user } = useAuth();
+  
+  // State
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
   
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('All');
@@ -134,16 +62,36 @@ const Projects: React.FC = () => {
   const [sortBy, setSortBy] = useState('newest');
   const [page, setPage] = useState(1);
   const [showFilters, setShowFilters] = useState(false);
+  const [categories, setCategories] = useState<string[]>(['All']);
   
   const projectsPerPage = 6;
 
-  // Get unique categories from sample data
-  const categories = ['All', ...Array.from(new Set(sampleProjects.map(project => project.category)))];
+  // Fetch projects from API
+  useEffect(() => {
+    const fetchProjects = async () => {
+      try {
+        setLoading(true);
+        const response = await projectService.getProjects();
+        setProjects(response.data);
+        
+        // Extract unique categories
+        const uniqueCategories = ['All', ...Array.from(new Set(response.data.map((project: Project) => project.category)))];
+        setCategories(uniqueCategories);
+      } catch (err) {
+        console.error('Error fetching projects:', err);
+        setError('Failed to load projects. Please try again later.');
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchProjects();
+  }, []);
   
   // Filter and sort projects
-  const filteredProjects = sampleProjects.filter(project => {
+  const filteredProjects = projects.filter(project => {
     const matchesSearch = project.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                        project.description.toLowerCase().includes(searchQuery.toLowerCase());
+                        (project.description?.toLowerCase().includes(searchQuery.toLowerCase()) || false);
     const matchesCategory = categoryFilter === 'All' || project.category === categoryFilter;
     const matchesStatus = statusFilter === 'All' || project.status === statusFilter;
     
@@ -153,17 +101,17 @@ const Projects: React.FC = () => {
   const sortedProjects = [...filteredProjects].sort((a, b) => {
     switch (sortBy) {
       case 'newest':
-        return new Date(b.creation_date).getTime() - new Date(a.creation_date).getTime();
+        return new Date(b.submittedDate).getTime() - new Date(a.submittedDate).getTime();
       case 'oldest':
-        return new Date(a.creation_date).getTime() - new Date(b.creation_date).getTime();
+        return new Date(a.submittedDate).getTime() - new Date(b.submittedDate).getTime();
       case 'most_funded':
-        return (b.current_funding / b.funding_goal) - (a.current_funding / a.funding_goal);
+        return ((b.currentFunding || 0) / b.fundingGoal) - ((a.currentFunding || 0) / a.fundingGoal);
       case 'least_funded':
-        return (a.current_funding / a.funding_goal) - (b.current_funding / b.funding_goal);
+        return ((a.currentFunding || 0) / a.fundingGoal) - ((b.currentFunding || 0) / b.fundingGoal);
       case 'highest_goal':
-        return b.funding_goal - a.funding_goal;
+        return b.fundingGoal - a.fundingGoal;
       case 'lowest_goal':
-        return a.funding_goal - b.funding_goal;
+        return a.fundingGoal - b.fundingGoal;
       default:
         return 0;
     }
@@ -179,25 +127,47 @@ const Projects: React.FC = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
   
-  const getStatusColor = (status: string) => {
+  const getStatusColor = (status: string | undefined) => {
+    if (!status) return theme.palette.grey[500];
+    
     switch (status) {
-      case 'seeking_funding':
+      case 'SeekingFunding':
         return theme.palette.primary.main;
-      case 'partially_funded':
+      case 'PartiallyFunded':
         return theme.palette.warning.main;
-      case 'fully_funded':
+      case 'FullyFunded':
         return theme.palette.success.main;
       default:
         return theme.palette.grey[500];
     }
   };
   
+  const getFormattedStatus = (status: string | undefined) => {
+    if (!status) return '';
+    
+    // Convert camelCase to space-separated words
+    return status.replace(/([A-Z])/g, ' $1').trim();
+  };
+  
   const handleProjectClick = (projectId: string) => {
     navigate(`/projects/${projectId}`);
   };
   
-  const getFundingProgress = (current: number, goal: number) => {
+  const getFundingProgress = (current: number | undefined, goal: number) => {
+    if (!current) return 0;
     return (current / goal) * 100;
+  };
+
+  const handleCategoryChange = (event: SelectChangeEvent<string>) => {
+    setCategoryFilter(event.target.value);
+  };
+  
+  const handleStatusChange = (event: SelectChangeEvent<string>) => {
+    setStatusFilter(event.target.value);
+  };
+  
+  const handleSortChange = (event: SelectChangeEvent<string>) => {
+    setSortBy(event.target.value);
   };
 
   return (
@@ -228,6 +198,12 @@ const Projects: React.FC = () => {
         </Box>
         
         <GradientDivider />
+        
+        {error && (
+          <Alert severity="error" sx={{ mb: 3 }}>
+            {error}
+          </Alert>
+        )}
         
         <Box sx={{ mb: 4 }}>
           <Grid container spacing={2} alignItems="center">
@@ -262,7 +238,7 @@ const Projects: React.FC = () => {
                 <Select
                   labelId="sort-by-label"
                   value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value)}
+                  onChange={handleSortChange}
                   label="Sort By"
                 >
                   <MenuItem value="newest">Newest</MenuItem>
@@ -285,7 +261,7 @@ const Projects: React.FC = () => {
                     <Select
                       labelId="category-filter-label"
                       value={categoryFilter}
-                      onChange={(e) => setCategoryFilter(e.target.value)}
+                      onChange={handleCategoryChange}
                       label="Category"
                     >
                       {categories.map(category => (
@@ -300,13 +276,13 @@ const Projects: React.FC = () => {
                     <Select
                       labelId="status-filter-label"
                       value={statusFilter}
-                      onChange={(e) => setStatusFilter(e.target.value)}
+                      onChange={handleStatusChange}
                       label="Status"
                     >
                       <MenuItem value="All">All</MenuItem>
-                      <MenuItem value="seeking_funding">Seeking Funding</MenuItem>
-                      <MenuItem value="partially_funded">Partially Funded</MenuItem>
-                      <MenuItem value="fully_funded">Fully Funded</MenuItem>
+                      <MenuItem value="SeekingFunding">Seeking Funding</MenuItem>
+                      <MenuItem value="PartiallyFunded">Partially Funded</MenuItem>
+                      <MenuItem value="FullyFunded">Fully Funded</MenuItem>
                     </Select>
                   </FormControl>
                 </Grid>
@@ -315,7 +291,11 @@ const Projects: React.FC = () => {
           )}
         </Box>
         
-        {currentProjects.length === 0 ? (
+        {loading ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+            <CircularProgress />
+          </Box>
+        ) : currentProjects.length === 0 ? (
           <Box sx={{ textAlign: 'center', my: 8 }}>
             <Typography variant="h5" color="text.secondary" gutterBottom>
               No projects found
@@ -361,7 +341,7 @@ const Projects: React.FC = () => {
                         }}
                       >
                         <Chip
-                          label={project.status.replace('_', ' ')}
+                          label={getFormattedStatus(project.status)}
                           size="small"
                           sx={{
                             backgroundColor: getStatusColor(project.status),
@@ -402,7 +382,7 @@ const Projects: React.FC = () => {
                             Funding Progress
                           </Typography>
                           <Typography variant="body2" fontWeight="bold">
-                            {Math.round(getFundingProgress(project.current_funding, project.funding_goal))}%
+                            {Math.round(getFundingProgress(project.currentFunding, project.fundingGoal))}%
                           </Typography>
                         </Box>
                         <Box
@@ -422,7 +402,7 @@ const Projects: React.FC = () => {
                               left: 0,
                               top: 0,
                               height: '100%',
-                              width: `${getFundingProgress(project.current_funding, project.funding_goal)}%`,
+                              width: `${getFundingProgress(project.currentFunding, project.fundingGoal)}%`,
                               borderRadius: 1,
                               background: `linear-gradient(90deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`,
                             }}
@@ -430,10 +410,10 @@ const Projects: React.FC = () => {
                         </Box>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
                           <Typography variant="body2" fontWeight="medium">
-                            ${project.current_funding.toLocaleString()}
+                            ${(project.currentFunding || 0).toLocaleString()}
                           </Typography>
                           <Typography variant="body2" color="text.secondary">
-                            of ${project.funding_goal.toLocaleString()}
+                            of ${project.fundingGoal.toLocaleString()}
                           </Typography>
                         </Box>
                         <Box sx={{ display: 'flex', gap: 1 }}>
@@ -445,12 +425,13 @@ const Projects: React.FC = () => {
                           >
                             Details
                           </Button>
-                          {user?.role === 'Investor' && project.status !== 'fully_funded' && (
+                          {user?.role === 'Investor' && project.status !== 'FullyFunded' && (
                             <Button
                               variant="contained"
                               color="secondary"
                               fullWidth
                               startIcon={<AttachMoney />}
+                              onClick={() => handleProjectClick(project.id)}
                             >
                               Invest
                             </Button>

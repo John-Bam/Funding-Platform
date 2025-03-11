@@ -1,718 +1,797 @@
-import React, { useState } from 'react';
+// client/src/components/wallet/VirtualWallet.tsx
+import React, { useState, useEffect } from 'react';
 import {
-  Box,
   Card,
-  CardContent,
+  Box,
   Typography,
   Button,
-  Divider,
+  Tabs,
+  Tab,
   List,
   ListItem,
   ListItemText,
+  ListItemAvatar,
   Chip,
-  IconButton,
+  Avatar,
+  Divider,
+  CircularProgress,
+  Alert,
   Dialog,
-  DialogTitle,
-  DialogContent,
   DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
   TextField,
-  Grid,
   MenuItem,
-  Select,
   FormControl,
   InputLabel,
+  Select,
   InputAdornment,
-  CircularProgress,
+  IconButton,
   styled,
-  useTheme,
-  SelectChangeEvent,
-  Alert,
+  Theme,
 } from '@mui/material';
 import {
   AccountBalanceWallet,
   Add,
-  Send,
   ArrowUpward,
   ArrowDownward,
-  Receipt,
-  AttachFile,
-  CheckCircle,
-  Cancel,
-  Description,
-  CloudUpload,
+  AttachMoney,
+  Refresh,
+  UploadFile,
+  Check,
+  Close,
 } from '@mui/icons-material';
+import { Wallet, Transaction } from '../../types/types';
 
-const VisuallyHiddenInput = styled('input')({
-  clip: 'rect(0 0 0 0)',
-  clipPath: 'inset(50%)',
-  height: 1,
-  overflow: 'hidden',
-  position: 'absolute',
-  bottom: 0,
-  left: 0,
-  whiteSpace: 'nowrap',
-  width: 1,
-});
-
-const GradientDivider = styled(Divider)(({ theme }) => ({
-  background: `linear-gradient(90deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`,
-  height: 3,
-  marginBottom: theme.spacing(2),
-}));
-
-// Define types for wallet and transactions
-type TransactionStatus = 'pending' | 'verifying' | 'completed' | 'rejected';
-type TransactionType = 'deposit' | 'withdrawal' | 'investment';
-type PaymentMethod = 'bank_transfer' | 'cryptocurrency' | 'credit_card';
-
-interface Transaction {
-  id: string;
-  type: TransactionType;
-  amount: number;
-  date: string;
-  status: TransactionStatus;
-  paymentMethod?: PaymentMethod;
-  proofOfPayment?: string;
-  project?: string;
-  projectId?: string;
-}
-
-// Mock transaction data with proper type assertions
-const mockTransactions: Transaction[] = [
-  {
-    id: 'txn_001',
-    type: 'deposit',
-    amount: 10000,
-    date: '2025-03-01',
-    status: 'completed',
-    paymentMethod: 'bank_transfer',
-    proofOfPayment: 'payment_receipt.pdf',
+// Import API service from correct relative path
+// During development, you may use a mock implementation
+const walletService = {
+  getWalletBalance: async (): Promise<{ success: boolean; data: Wallet }> => {
+    // Simulate API call delay
+    await new Promise(resolve => setTimeout(resolve, 500));
+    return {
+      success: true,
+      data: {
+        walletId: 'wallet_123',
+        balance: 5000
+      }
+    };
   },
-  {
-    id: 'txn_002',
-    type: 'investment',
-    amount: 5000,
-    date: '2025-03-05',
-    status: 'completed',
-    project: 'Smart Agriculture System',
-    projectId: 'proj_001',
+  getTransactions: async (): Promise<{ success: boolean; data: Transaction[] }> => {
+    // Simulate API call delay
+    await new Promise(resolve => setTimeout(resolve, 500));
+    return {
+      success: true,
+      data: [
+        {
+          id: 'tx_001',
+          type: 'deposit',
+          status: 'completed',
+          amount: 2000,
+          date: new Date().toISOString(),
+          paymentMethod: 'bank_transfer',
+          notes: 'Initial deposit'
+        },
+        {
+          id: 'tx_002',
+          type: 'withdrawal',
+          status: 'pending',
+          amount: 500,
+          date: new Date().toISOString(),
+          paymentMethod: 'bank_transfer',
+          notes: 'Withdrawal request'
+        }
+      ]
+    };
   },
-  {
-    id: 'txn_003',
-    type: 'deposit',
-    amount: 15000,
-    date: '2025-03-08',
-    status: 'pending',
-    paymentMethod: 'cryptocurrency',
-    proofOfPayment: 'crypto_transfer.png',
+  createDeposit: async (amount: number, paymentMethod: string): Promise<{ success: boolean; data: Transaction }> => {
+    // Simulate API call delay
+    await new Promise(resolve => setTimeout(resolve, 500));
+    return {
+      success: true,
+      data: {
+        id: `tx_dep_${Date.now()}`,
+        type: 'deposit',
+        status: 'pending',
+        amount,
+        date: new Date().toISOString(),
+        paymentMethod,
+        notes: `Deposit via ${paymentMethod}`
+      }
+    };
   },
-  {
-    id: 'txn_004',
-    type: 'investment',
-    amount: 7500,
-    date: '2025-03-10',
-    status: 'pending',
-    project: 'Clean Water Initiative',
-    projectId: 'proj_002',
-  },
-];
+  uploadProofOfPayment: async (transactionId: string, file: File): Promise<{ success: boolean; data: Transaction }> => {
+    // Simulate API call delay
+    await new Promise(resolve => setTimeout(resolve, 500));
+    return {
+      success: true,
+      data: {
+        id: transactionId,
+        type: 'deposit',
+        status: 'verifying',
+        amount: 1000,
+        date: new Date().toISOString(),
+        paymentMethod: 'bank_transfer',
+        proofOfPayment: file.name,
+        notes: 'Proof of payment uploaded'
+      }
+    };
+  }
+};
 
 interface VirtualWalletProps {
   userId: string;
 }
 
+interface TabPanelProps {
+  children?: React.ReactNode;
+  index: number;
+  value: number;
+}
+
+const GradientCard = styled(Card)(({ theme }: { theme: Theme }) => ({
+  backgroundColor: 'rgba(40, 40, 40, 0.7)',
+  backdropFilter: 'blur(10px)',
+  borderRadius: 16,
+  border: `1px solid ${theme.palette.divider}`,
+  padding: theme.spacing(3),
+  marginBottom: theme.spacing(3),
+  boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+}));
+
+const TabPanel = (props: TabPanelProps) => {
+  const { children, value, index, ...other } = props;
+
+  return (
+    <div
+      role="tabpanel"
+      hidden={value !== index}
+      id={`wallet-tabpanel-${index}`}
+      aria-labelledby={`wallet-tab-${index}`}
+      {...other}
+    >
+      {value === index && <Box sx={{ pt: 3 }}>{children}</Box>}
+    </div>
+  );
+};
+
+const paymentMethods = [
+  { value: 'bank_transfer', label: 'Bank Transfer' },
+  { value: 'credit_card', label: 'Credit Card' },
+  { value: 'crypto', label: 'Cryptocurrency' },
+];
+
 const VirtualWallet: React.FC<VirtualWalletProps> = ({ userId }) => {
-  const theme = useTheme();
-  
-  // State for wallet and transactions
-  const [balance, setBalance] = useState(12500);
-  const [transactions, setTransactions] = useState<Transaction[]>(mockTransactions);
-  const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
+  const [wallet, setWallet] = useState<Wallet | null>(null);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+  const [tabValue, setTabValue] = useState(0);
   
   // Dialog states
   const [depositDialogOpen, setDepositDialogOpen] = useState(false);
-  const [transactionDetailsOpen, setTransactionDetailsOpen] = useState(false);
-  const [proofUploadOpen, setProofUploadOpen] = useState(false);
+  const [withdrawDialogOpen, setWithdrawDialogOpen] = useState(false);
+  const [uploadProofDialogOpen, setUploadProofDialogOpen] = useState(false);
+  const [selectedTransaction, setSelectedTransaction] = useState<string | null>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   
   // Form states
-  const [depositAmount, setDepositAmount] = useState(1000);
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('bank_transfer');
-  const [proofFile, setProofFile] = useState<File | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [depositAmount, setDepositAmount] = useState<number>(0);
+  const [depositMethod, setDepositMethod] = useState<string>('');
+  const [withdrawAmount, setWithdrawAmount] = useState<number>(0);
+  const [withdrawMethod, setWithdrawMethod] = useState<string>('');
+  const [accountDetails, setAccountDetails] = useState<string>('');
   
-  // Handle opening transaction details
-  const handleViewTransaction = (transaction: Transaction) => {
-    setSelectedTransaction(transaction);
-    setTransactionDetailsOpen(true);
-  };
+  // Success/error messages
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   
-  // Handle deposit dialog
-  const handleOpenDepositDialog = () => {
-    setDepositDialogOpen(true);
-  };
-  
-  const handleCloseDepositDialog = () => {
-    setDepositDialogOpen(false);
-    setDepositAmount(1000);
-    setPaymentMethod('bank_transfer');
-  };
-  
-  // Handle payment method change
-  const handlePaymentMethodChange = (event: SelectChangeEvent<PaymentMethod>) => {
-    setPaymentMethod(event.target.value as PaymentMethod);
-  };
-  
-  // Handle proof upload
-  const handleOpenProofUpload = () => {
-    setDepositDialogOpen(false);
-    setProofUploadOpen(true);
-  };
-  
-  const handleCloseProofUpload = () => {
-    setProofUploadOpen(false);
-    setProofFile(null);
-  };
-  
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (event.target.files && event.target.files.length > 0) {
-      setProofFile(event.target.files[0]);
-    }
-  };
-  
-  // Handle submit deposit with proof
-  const handleSubmitDeposit = async () => {
-    if (!proofFile) return;
+  // Fetch wallet data
+  useEffect(() => {
+    const fetchWalletData = async () => {
+      if (!userId) return;
+      
+      try {
+        setLoading(true);
+        
+        // Get wallet balance
+        const walletResponse = await walletService.getWalletBalance();
+        setWallet(walletResponse.data);
+        
+        // Get transactions
+        const transactionsResponse = await walletService.getTransactions();
+        setTransactions(transactionsResponse.data);
+      } catch (err) {
+        console.error('Error fetching wallet data:', err);
+        setError('Failed to load wallet data. Please try again later.');
+      } finally {
+        setLoading(false);
+      }
+    };
     
-    setLoading(true);
-    
+    fetchWalletData();
+  }, [userId]);
+  
+  const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
+    setTabValue(newValue);
+  };
+  
+  const handleRefresh = async () => {
     try {
-      // In a real app, this would upload the file and create a transaction in the backend
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      setLoading(true);
       
-      // Add new transaction to state
-      const newTransaction: Transaction = {
-        id: `txn_${Date.now()}`,
-        type: 'deposit',
-        amount: depositAmount,
-        date: new Date().toISOString().split('T')[0],
-        status: 'pending',
-        paymentMethod: paymentMethod,
-        proofOfPayment: proofFile.name,
-      };
+      // Get wallet balance
+      const walletResponse = await walletService.getWalletBalance();
+      setWallet(walletResponse.data);
       
-      setTransactions([newTransaction, ...transactions]);
+      // Get transactions
+      const transactionsResponse = await walletService.getTransactions();
+      setTransactions(transactionsResponse.data);
       
-      // Close dialog and reset states
-      setProofUploadOpen(false);
-      setProofFile(null);
-      setDepositAmount(1000);
-      setPaymentMethod('bank_transfer');
-    } catch (error) {
-      console.error('Error submitting deposit:', error);
+      setSuccessMessage('Wallet data refreshed');
+      setTimeout(() => setSuccessMessage(null), 3000);
+    } catch (err) {
+      console.error('Error refreshing wallet data:', err);
+      setError('Failed to refresh wallet data. Please try again later.');
     } finally {
       setLoading(false);
     }
   };
   
-  // Get status color for chips
-  const getStatusColor = (status: TransactionStatus) => {
-    switch (status) {
-      case 'completed':
-        return 'success';
-      case 'pending':
-        return 'warning';
-      case 'verifying':
-        return 'info';
-      case 'rejected':
-        return 'error';
-      default:
-        return 'default';
+  const handleDepositDialogOpen = () => {
+    setDepositDialogOpen(true);
+    setDepositAmount(0);
+    setDepositMethod('');
+    setActionError(null);
+  };
+  
+  const handleDepositDialogClose = () => {
+    setDepositDialogOpen(false);
+  };
+  
+  const handleWithdrawDialogOpen = () => {
+    setWithdrawDialogOpen(true);
+    setWithdrawAmount(0);
+    setWithdrawMethod('');
+    setAccountDetails('');
+    setActionError(null);
+  };
+  
+  const handleWithdrawDialogClose = () => {
+    setWithdrawDialogOpen(false);
+  };
+  
+  const handleUploadDialogOpen = (transactionId: string) => {
+    setSelectedTransaction(transactionId);
+    setUploadProofDialogOpen(true);
+    setSelectedFile(null);
+    setActionError(null);
+  };
+  
+  const handleUploadDialogClose = () => {
+    setUploadProofDialogOpen(false);
+  };
+  
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (event.target.files && event.target.files.length > 0) {
+      setSelectedFile(event.target.files[0]);
     }
   };
   
-  // Get icon for transaction type
-  const getTransactionIcon = (type: TransactionType) => {
-    switch (type) {
+  const handleCreateDeposit = async () => {
+    if (depositAmount <= 0) {
+      setActionError('Please enter a valid amount');
+      return;
+    }
+    
+    if (!depositMethod) {
+      setActionError('Please select a payment method');
+      return;
+    }
+    
+    try {
+      const response = await walletService.createDeposit(depositAmount, depositMethod);
+      
+      // Close dialog
+      setDepositDialogOpen(false);
+      
+      // Show success message
+      setSuccessMessage('Deposit request created successfully. Please upload proof of payment.');
+      
+      // Refresh transactions
+      const transactionsResponse = await walletService.getTransactions();
+      setTransactions(transactionsResponse.data);
+      
+      // Open upload proof dialog
+      handleUploadDialogOpen(response.data.id);
+    } catch (err) {
+      console.error('Error creating deposit:', err);
+      setActionError('Failed to create deposit. Please try again.');
+    }
+  };
+  
+  const handleUploadProof = async () => {
+    if (!selectedTransaction || !selectedFile) {
+      setActionError('Please select a file to upload');
+      return;
+    }
+    
+    try {
+      await walletService.uploadProofOfPayment(selectedTransaction, selectedFile);
+      
+      // Close dialog
+      setUploadProofDialogOpen(false);
+      
+      // Show success message
+      setSuccessMessage('Proof of payment uploaded successfully');
+      
+      // Refresh transactions
+      const transactionsResponse = await walletService.getTransactions();
+      setTransactions(transactionsResponse.data);
+    } catch (err) {
+      console.error('Error uploading proof:', err);
+      setActionError('Failed to upload proof of payment. Please try again.');
+    }
+  };
+  
+  const handleCreateWithdrawal = async () => {
+    if (!wallet) return;
+    
+    if (withdrawAmount <= 0) {
+      setActionError('Please enter a valid amount');
+      return;
+    }
+    
+    if (withdrawAmount > wallet.balance) {
+      setActionError('Insufficient funds');
+      return;
+    }
+    
+    if (!withdrawMethod) {
+      setActionError('Please select a withdrawal method');
+      return;
+    }
+    
+    if (!accountDetails) {
+      setActionError('Please enter account details');
+      return;
+    }
+    
+    try {
+      // This would be replaced with actual API call
+      // await walletService.createWithdrawal(withdrawAmount, withdrawMethod, accountDetails);
+      
+      // Mock withdrawal for now
+      console.log('Withdrawal request:', {
+        amount: withdrawAmount,
+        method: withdrawMethod,
+        accountDetails
+      });
+      
+      // Close dialog
+      setWithdrawDialogOpen(false);
+      
+      // Show success message
+      setSuccessMessage('Withdrawal request submitted successfully');
+      
+      // Refresh wallet data
+      await handleRefresh();
+    } catch (err) {
+      console.error('Error creating withdrawal:', err);
+      setActionError('Failed to submit withdrawal request. Please try again.');
+    }
+  };
+  
+  const getStatusChip = (status: string) => {
+    let color = 'default';
+    
+    switch (status.toLowerCase()) {
+      case 'completed':
+        color = 'success';
+        break;
+      case 'pending':
+        color = 'warning';
+        break;
+      case 'rejected':
+        color = 'error';
+        break;
+      case 'verifying':
+        color = 'info';
+        break;
+      default:
+        color = 'default';
+    }
+    
+    return (
+      <Chip
+        label={status}
+        color={color as "success" | "warning" | "error" | "info" | "default"}
+        size="small"
+        sx={{ textTransform: 'capitalize' }}
+      />
+    );
+  };
+  
+  const getTransactionIcon = (type: string) => {
+    switch (type.toLowerCase()) {
       case 'deposit':
         return <ArrowUpward color="success" />;
       case 'withdrawal':
         return <ArrowDownward color="error" />;
       case 'investment':
-        return <Send color="primary" />;
+        return <AttachMoney color="info" />;
       default:
-        return <Description />;
+        return <AttachMoney />;
     }
   };
   
+  if (loading && !wallet) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
+  
   return (
-    <>
-      <Card sx={{ mb: 3 }}>
-        <CardContent>
-          <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-            <Box display="flex" alignItems="center">
-              <AccountBalanceWallet fontSize="large" color="primary" sx={{ mr: 2 }} />
-              <Box>
-                <Typography variant="h6" color="text.secondary">
-                  Wallet Balance
-                </Typography>
-                <Typography variant="h4" fontWeight="bold">
-                  ${balance.toLocaleString()}
-                </Typography>
-              </Box>
-            </Box>
-            <Button
-              variant="contained"
-              color="primary"
-              startIcon={<Add />}
-              onClick={handleOpenDepositDialog}
-            >
-              Add Funds
-            </Button>
-          </Box>
-          <GradientDivider />
-          <Typography variant="subtitle1" sx={{ mb: 2 }}>
-            Recent Transactions
-          </Typography>
-          <List sx={{ maxHeight: 320, overflow: 'auto' }}>
-            {transactions.map((transaction) => (
-              <ListItem
-                key={transaction.id}
-                sx={{ 
-                  mb: 1, 
-                  backgroundColor: 'rgba(255, 255, 255, 0.03)', 
-                  borderRadius: 2,
-                  cursor: 'pointer',
-                }}
-                onClick={() => handleViewTransaction(transaction)}
-                secondaryAction={
-                  <Chip 
-                    label={transaction.status} 
-                    color={getStatusColor(transaction.status)}
-                    size="small"
-                  />
-                }
-              >
-                <Box display="flex" alignItems="center" width="100%">
-                  <IconButton
-                    size="small"
-                    sx={{ 
-                      mr: 1,
-                      backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                    }}
-                  >
-                    {getTransactionIcon(transaction.type)}
-                  </IconButton>
-                  <ListItemText
-                    primary={
-                      <Box display="flex" justifyContent="space-between">
-                        <Typography variant="body2" fontWeight="medium">
-                          {transaction.type === 'investment' 
-                            ? `Investment in ${transaction.project}` 
-                            : `${transaction.type.charAt(0).toUpperCase() + transaction.type.slice(1)}`}
-                        </Typography>
-                        <Typography 
-                          variant="body2" 
-                          color={transaction.type === 'deposit' ? 'success.main' : 'primary.main'}
-                          fontWeight="bold"
-                        >
-                          {transaction.type === 'withdrawal' ? '-' : '+'}{transaction.amount.toLocaleString()}
-                        </Typography>
-                      </Box>
-                    }
-                    secondary={
-                      <Box display="flex" justifyContent="space-between">
-                        <Typography variant="caption" color="text.secondary">
-                          {new Date(transaction.date).toLocaleDateString()}
-                        </Typography>
-                        {transaction.paymentMethod && (
-                          <Typography variant="caption" color="text.secondary">
-                            {transaction.paymentMethod.replace('_', ' ')}
-                          </Typography>
-                        )}
-                      </Box>
-                    }
-                  />
-                </Box>
-              </ListItem>
-            ))}
-          </List>
-        </CardContent>
-      </Card>
+    <GradientCard>
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {error}
+        </Alert>
+      )}
+      
+      {successMessage && (
+        <Alert severity="success" sx={{ mb: 2 }}>
+          {successMessage}
+        </Alert>
+      )}
+      
+      <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+        <Box display="flex" alignItems="center">
+          <AccountBalanceWallet sx={{ fontSize: 30, mr: 1, color: '#7986CB' }} />
+          <Typography variant="h5">Virtual Wallet</Typography>
+        </Box>
+        <IconButton onClick={handleRefresh} disabled={loading}>
+          {loading ? <CircularProgress size={24} /> : <Refresh />}
+        </IconButton>
+      </Box>
+      
+      <Box 
+        sx={{ 
+          p: 3,
+          borderRadius: 2,
+          background: 'linear-gradient(135deg, #1976d2 0%, #512da8 100%)',
+          mb: 3
+        }}
+      >
+        <Typography variant="body2" color="white" gutterBottom>
+          Available Balance
+        </Typography>
+        <Typography variant="h4" color="white" gutterBottom>
+          ${wallet?.balance.toLocaleString() || '0.00'}
+        </Typography>
+        <Box display="flex" mt={2}>
+          <Button
+            variant="contained"
+            color="success"
+            startIcon={<ArrowUpward />}
+            onClick={handleDepositDialogOpen}
+            sx={{ mr: 1 }}
+          >
+            Deposit
+          </Button>
+          <Button
+            variant="contained"
+            color="error"
+            startIcon={<ArrowDownward />}
+            onClick={handleWithdrawDialogOpen}
+            disabled={!wallet || wallet.balance <= 0}
+          >
+            Withdraw
+          </Button>
+        </Box>
+      </Box>
+      
+      <Box>
+        <Tabs
+          value={tabValue}
+          onChange={handleTabChange}
+          variant="fullWidth"
+          sx={{ borderBottom: 1, borderColor: 'divider' }}
+        >
+          <Tab label="All Transactions" />
+          <Tab label="Deposits" />
+          <Tab label="Withdrawals" />
+          <Tab label="Investments" />
+        </Tabs>
+        
+        <TabPanel value={tabValue} index={0}>
+          {renderTransactions(transactions)}
+        </TabPanel>
+        
+        <TabPanel value={tabValue} index={1}>
+          {renderTransactions(transactions.filter(t => t.type.toLowerCase() === 'deposit'))}
+        </TabPanel>
+        
+        <TabPanel value={tabValue} index={2}>
+          {renderTransactions(transactions.filter(t => t.type.toLowerCase() === 'withdrawal'))}
+        </TabPanel>
+        
+        <TabPanel value={tabValue} index={3}>
+          {renderTransactions(transactions.filter(t => t.type.toLowerCase() === 'investment'))}
+        </TabPanel>
+      </Box>
       
       {/* Deposit Dialog */}
-      <Dialog open={depositDialogOpen} onClose={handleCloseDepositDialog} maxWidth="sm" fullWidth>
-        <DialogTitle>Add Funds to Wallet</DialogTitle>
+      <Dialog open={depositDialogOpen} onClose={handleDepositDialogClose} maxWidth="sm" fullWidth>
+        <DialogTitle>Deposit Funds</DialogTitle>
         <DialogContent>
-          <Grid container spacing={3} sx={{ mt: 1 }}>
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="Amount (USD)"
-                type="number"
-                value={depositAmount}
-                onChange={(e) => setDepositAmount(Number(e.target.value))}
-                InputProps={{
-                  startAdornment: <InputAdornment position="start">$</InputAdornment>,
-                  inputProps: { min: 100 },
-                }}
-              />
-            </Grid>
-            <Grid item xs={12}>
-              <FormControl fullWidth>
-                <InputLabel id="payment-method-label">Payment Method</InputLabel>
-                <Select
-                  labelId="payment-method-label"
-                  value={paymentMethod}
-                  onChange={handlePaymentMethodChange}
-                  label="Payment Method"
-                >
-                  <MenuItem value="bank_transfer">Bank Transfer</MenuItem>
-                  <MenuItem value="cryptocurrency">Cryptocurrency</MenuItem>
-                  <MenuItem value="credit_card">Credit Card</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid item xs={12}>
-              <Typography variant="body2" color="text.secondary">
-                Please note that funds will only be credited to your wallet after verification of your payment. 
-                You will need to upload proof of payment in the next step.
-              </Typography>
-            </Grid>
-          </Grid>
+          {actionError && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {actionError}
+            </Alert>
+          )}
+          
+          <DialogContentText gutterBottom>
+            Enter the amount you want to deposit and select a payment method.
+          </DialogContentText>
+          
+          <TextField
+            fullWidth
+            label="Amount"
+            type="number"
+            value={depositAmount}
+            onChange={(e) => setDepositAmount(Number(e.target.value))}
+            InputProps={{
+              startAdornment: <InputAdornment position="start">$</InputAdornment>,
+              inputProps: { min: 1 }
+            }}
+            sx={{ mb: 2, mt: 2 }}
+          />
+          
+          <FormControl fullWidth sx={{ mb: 2 }}>
+            <InputLabel id="deposit-method-label">Payment Method</InputLabel>
+            <Select
+              labelId="deposit-method-label"
+              value={depositMethod}
+              onChange={(e) => setDepositMethod(e.target.value)}
+              label="Payment Method"
+            >
+              {paymentMethods.map((method) => (
+                <MenuItem key={method.value} value={method.value}>
+                  {method.label}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          
+          <DialogContentText variant="body2" color="text.secondary">
+            After submitting your deposit request, you will need to upload proof of payment.
+          </DialogContentText>
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleCloseDepositDialog}>Cancel</Button>
+          <Button onClick={handleDepositDialogClose}>Cancel</Button>
           <Button
+            onClick={handleCreateDeposit}
             variant="contained"
             color="primary"
-            onClick={handleOpenProofUpload}
-            disabled={depositAmount < 100}
+            disabled={depositAmount <= 0 || !depositMethod}
           >
-            Continue
+            Create Deposit
           </Button>
         </DialogActions>
       </Dialog>
       
-      {/* Proof Upload Dialog */}
-      <Dialog open={proofUploadOpen} onClose={handleCloseProofUpload} maxWidth="sm" fullWidth>
+      {/* Upload Proof Dialog */}
+      <Dialog open={uploadProofDialogOpen} onClose={handleUploadDialogClose} maxWidth="sm" fullWidth>
         <DialogTitle>Upload Proof of Payment</DialogTitle>
         <DialogContent>
-          <Grid container spacing={3} sx={{ mt: 1 }}>
-            <Grid item xs={12}>
-              <Typography variant="subtitle1" gutterBottom>
-                Amount: ${depositAmount.toLocaleString()}
-              </Typography>
-              <Typography variant="subtitle2" gutterBottom>
-                Payment Method: {paymentMethod.replace('_', ' ')}
-              </Typography>
-              <GradientDivider />
-            </Grid>
-            
-            {paymentMethod === 'bank_transfer' && (
-              <Grid item xs={12}>
-                <Typography variant="body2" color="text.secondary" gutterBottom>
-                  Please make a bank transfer to the following account:
-                </Typography>
-                <Box 
-                  sx={{ 
-                    p: 2, 
-                    backgroundColor: 'rgba(255, 255, 255, 0.05)', 
-                    borderRadius: 1,
-                    mb: 2,
-                  }}
-                >
-                  <Typography variant="body2">Bank: Global Investment Bank</Typography>
-                  <Typography variant="body2">Account Name: InnoCap Forge Ltd</Typography>
-                  <Typography variant="body2">Account Number: 1234567890</Typography>
-                  <Typography variant="body2">Routing Number: 987654321</Typography>
-                  <Typography variant="body2">Reference: INV-{userId.substring(0, 8)}</Typography>
-                </Box>
-              </Grid>
-            )}
-            
-            {paymentMethod === 'cryptocurrency' && (
-              <Grid item xs={12}>
-                <Typography variant="body2" color="text.secondary" gutterBottom>
-                  Please send cryptocurrency to the following wallet address:
-                </Typography>
-                <Box 
-                  sx={{ 
-                    p: 2, 
-                    backgroundColor: 'rgba(255, 255, 255, 0.05)', 
-                    borderRadius: 1,
-                    mb: 2,
-                  }}
-                >
-                  <Typography variant="body2">Bitcoin (BTC): 3FZbgi29cpjq2GjdwV8eyHuJJnkLtktZc5</Typography>
-                  <Typography variant="body2">Ethereum (ETH): 0x89205A3A3b2A69De6Dbf7f01ED13B2108B2c43e7</Typography>
-                  <Typography variant="body2">
-                    Memo/Reference: INV-{userId.substring(0, 8)}
-                  </Typography>
-                </Box>
-              </Grid>
-            )}
-            
-            {paymentMethod === 'credit_card' && (
-              <Grid item xs={12}>
-                <Typography variant="body2" color="text.secondary" gutterBottom>
-                  You'll be redirected to our secure payment gateway after uploading the required documents.
-                </Typography>
-              </Grid>
-            )}
-            
-            <Grid item xs={12}>
-              <Typography variant="body2" gutterBottom>
-                Upload proof of payment:
-              </Typography>
-              
-              <Box 
-                sx={{ 
-                  display: 'flex', 
-                  flexDirection: 'column', 
-                  alignItems: 'center',
-                  p: 3,
-                  border: `2px dashed ${theme.palette.divider}`,
-                  borderRadius: 2,
-                  backgroundColor: 'rgba(255, 255, 255, 0.03)',
-                  textAlign: 'center',
-                }}
+          {actionError && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {actionError}
+            </Alert>
+          )}
+          
+          <DialogContentText gutterBottom>
+            Please upload proof of your payment (receipt, screenshot, etc.)
+          </DialogContentText>
+          
+          <Box sx={{ mt: 2, mb: 2 }}>
+            <input
+              accept="image/*,application/pdf"
+              style={{ display: 'none' }}
+              id="upload-file-button"
+              type="file"
+              onChange={handleFileChange}
+            />
+            <label htmlFor="upload-file-button">
+              <Button
+                variant="outlined"
+                component="span"
+                startIcon={<UploadFile />}
+                sx={{ mb: 1 }}
               >
-                {!proofFile ? (
-                  <>
-                    <CloudUpload fontSize="large" color="primary" sx={{ mb: 2 }} />
-                    <Typography variant="body2" color="text.secondary" gutterBottom>
-                      Drag and drop a file here, or click to select
-                    </Typography>
-                    <Button
-                      component="label"
-                      variant="outlined"
-                      startIcon={<AttachFile />}
-                      sx={{ mt: 2 }}
-                    >
-                      Select File
-                      <VisuallyHiddenInput 
-                        type="file" 
-                        onChange={handleFileChange}
-                        accept=".jpg,.jpeg,.png,.pdf,.doc,.docx"
-                      />
-                    </Button>
-                  </>
-                ) : (
-                  <>
-                    <CheckCircle fontSize="large" color="success" sx={{ mb: 2 }} />
-                    <Typography variant="body1" gutterBottom>
-                      {proofFile.name}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary" gutterBottom>
-                      {(proofFile.size / 1024).toFixed(2)} KB
-                    </Typography>
-                    <Button
-                      variant="outlined"
-                      color="error"
-                      startIcon={<Cancel />}
-                      onClick={() => setProofFile(null)}
-                      sx={{ mt: 2 }}
-                    >
-                      Remove
-                    </Button>
-                  </>
-                )}
-              </Box>
-              
-              <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 1 }}>
-                Accepted file formats: JPG, PNG, PDF, DOC. Maximum file size: 5MB
+                Select File
+              </Button>
+            </label>
+            
+            {selectedFile && (
+              <Typography variant="body2">
+                Selected: {selectedFile.name}
               </Typography>
-            </Grid>
-          </Grid>
+            )}
+          </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleCloseProofUpload}>Cancel</Button>
+          <Button onClick={handleUploadDialogClose}>Cancel</Button>
           <Button
+            onClick={handleUploadProof}
             variant="contained"
             color="primary"
-            onClick={handleSubmitDeposit}
-            disabled={!proofFile || loading}
-            startIcon={loading ? <CircularProgress size={20} /> : null}
+            disabled={!selectedFile}
           >
-            {loading ? 'Submitting...' : 'Submit Payment'}
+            Upload
           </Button>
         </DialogActions>
       </Dialog>
       
-      {/* Transaction Details Dialog */}
-      {selectedTransaction && (
-        <Dialog 
-          open={transactionDetailsOpen} 
-          onClose={() => setTransactionDetailsOpen(false)}
-          maxWidth="sm"
-          fullWidth
-        >
-          <DialogTitle>
-            Transaction Details
-          </DialogTitle>
-          <DialogContent>
-            <Grid container spacing={2} sx={{ mt: 1 }}>
-              <Grid item xs={12}>
-                <Box 
-                  sx={{ 
-                    display: 'flex', 
-                    alignItems: 'center',
-                    mb: 2,
-                  }}
-                >
-                  <IconButton
-                    size="large"
-                    sx={{ 
-                      mr: 2,
-                      backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                    }}
-                  >
-                    {getTransactionIcon(selectedTransaction.type)}
-                  </IconButton>
-                  <Box>
-                    <Typography variant="h6">
-                      {selectedTransaction.type === 'investment' 
-                        ? `Investment in ${selectedTransaction.project}` 
-                        : `${selectedTransaction.type.charAt(0).toUpperCase() + selectedTransaction.type.slice(1)}`}
-                    </Typography>
-                    <Box display="flex" alignItems="center">
-                      <Chip 
-                        label={selectedTransaction.status} 
-                        color={getStatusColor(selectedTransaction.status)}
-                        size="small"
-                        sx={{ mr: 1 }}
-                      />
-                      <Typography variant="body2" color="text.secondary">
-                        {new Date(selectedTransaction.date).toLocaleDateString()}
-                      </Typography>
-                    </Box>
-                  </Box>
-                </Box>
-                <GradientDivider />
-              </Grid>
-              
-              <Grid item xs={6}>
-                <Typography variant="body2" color="text.secondary">
-                  Transaction ID
-                </Typography>
-                <Typography variant="body1">
-                  {selectedTransaction.id}
-                </Typography>
-              </Grid>
-              
-              <Grid item xs={6}>
-                <Typography variant="body2" color="text.secondary">
-                  Amount
-                </Typography>
-                <Typography 
-                  variant="body1"
-                  color={selectedTransaction.type === 'deposit' ? 'success.main' : 'primary.main'}
-                  fontWeight="bold"
-                >
-                  ${selectedTransaction.amount.toLocaleString()}
-                </Typography>
-              </Grid>
-              
-              <Grid item xs={6}>
-                <Typography variant="body2" color="text.secondary">
-                  Type
-                </Typography>
-                <Typography variant="body1" textTransform="capitalize">
-                  {selectedTransaction.type.replace('_', ' ')}
-                </Typography>
-              </Grid>
-              
-              <Grid item xs={6}>
-                <Typography variant="body2" color="text.secondary">
-                  Date
-                </Typography>
-                <Typography variant="body1">
-                  {new Date(selectedTransaction.date).toLocaleDateString()}
-                </Typography>
-              </Grid>
-              
-              {selectedTransaction.paymentMethod && (
-                <Grid item xs={12}>
-                  <Typography variant="body2" color="text.secondary">
-                    Payment Method
-                  </Typography>
-                  <Typography variant="body1" textTransform="capitalize">
-                    {selectedTransaction.paymentMethod.replace('_', ' ')}
-                  </Typography>
-                </Grid>
-              )}
-              
-              {selectedTransaction.project && (
-                <Grid item xs={12}>
-                  <Typography variant="body2" color="text.secondary">
-                    Project
-                  </Typography>
-                  <Typography variant="body1">
-                    {selectedTransaction.project}
-                  </Typography>
-                </Grid>
-              )}
-              
-              {selectedTransaction.proofOfPayment && (
-                <Grid item xs={12}>
-                  <Typography variant="body2" color="text.secondary">
-                    Proof of Payment
-                  </Typography>
-                  <Box 
-                    sx={{ 
-                      display: 'flex',
-                      alignItems: 'center',
-                      p: 2,
-                      backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                      borderRadius: 1,
-                      mt: 1,
-                    }}
-                  >
-                    <Receipt sx={{ mr: 1 }} />
-                    <Typography variant="body2">
-                      {selectedTransaction.proofOfPayment}
-                    </Typography>
-                    <Button 
-                      variant="text" 
-                      sx={{ ml: 'auto' }}
-                      size="small"
-                    >
-                      View
-                    </Button>
-                  </Box>
-                </Grid>
-              )}
-              
-              {selectedTransaction.status === 'pending' && (
-                <Grid item xs={12}>
-                  <Alert 
-                    severity="info"
-                    sx={{ mt: 1 }}
-                  >
-                    This transaction is pending verification. You will be notified once it's processed.
-                  </Alert>
-                </Grid>
-              )}
-              
-              {selectedTransaction.status === 'rejected' && (
-                <Grid item xs={12}>
-                  <Alert 
-                    severity="error"
-                    sx={{ mt: 1 }}
-                  >
-                    This transaction was rejected. Please contact support for more information.
-                  </Alert>
-                </Grid>
-              )}
-            </Grid>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setTransactionDetailsOpen(false)}>Close</Button>
-          </DialogActions>
-        </Dialog>
-      )}
-    </>
+      {/* Withdraw Dialog */}
+      <Dialog open={withdrawDialogOpen} onClose={handleWithdrawDialogClose} maxWidth="sm" fullWidth>
+        <DialogTitle>Withdraw Funds</DialogTitle>
+        <DialogContent>
+          {actionError && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {actionError}
+            </Alert>
+          )}
+          
+          <DialogContentText gutterBottom>
+            Enter the amount you want to withdraw and your account details.
+          </DialogContentText>
+          
+          <Box sx={{ display: 'flex', alignItems: 'center', mb: 2, mt: 2 }}>
+            <Typography variant="body2" mr={1}>
+              Available:
+            </Typography>
+            <Typography variant="body1" fontWeight="bold">
+              ${wallet?.balance.toLocaleString() || '0.00'}
+            </Typography>
+          </Box>
+          
+          <TextField
+            fullWidth
+            label="Amount"
+            type="number"
+            value={withdrawAmount}
+            onChange={(e) => setWithdrawAmount(Number(e.target.value))}
+            InputProps={{
+              startAdornment: <InputAdornment position="start">$</InputAdornment>,
+              inputProps: { min: 1, max: wallet?.balance || 0 }
+            }}
+            sx={{ mb: 2 }}
+          />
+          
+          <FormControl fullWidth sx={{ mb: 2 }}>
+            <InputLabel id="withdraw-method-label">Withdrawal Method</InputLabel>
+            <Select
+              labelId="withdraw-method-label"
+              value={withdrawMethod}
+              onChange={(e) => setWithdrawMethod(e.target.value)}
+              label="Withdrawal Method"
+            >
+              {paymentMethods.map((method) => (
+                <MenuItem key={method.value} value={method.value}>
+                  {method.label}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          
+          <TextField
+            fullWidth
+            label="Account Details"
+            multiline
+            rows={3}
+            value={accountDetails}
+            onChange={(e) => setAccountDetails(e.target.value)}
+            placeholder="Enter account details for the withdrawal (account number, wallet address, etc.)"
+            sx={{ mb: 2 }}
+          />
+          
+          <DialogContentText variant="body2" color="text.secondary">
+            Withdrawal requests are typically processed within 1-3 business days.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleWithdrawDialogClose}>Cancel</Button>
+          <Button
+            onClick={handleCreateWithdrawal}
+            variant="contained"
+            color="primary"
+            disabled={withdrawAmount <= 0 || withdrawAmount > (wallet?.balance || 0) || !withdrawMethod || !accountDetails}
+          >
+            Submit Withdrawal
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </GradientCard>
   );
+  
+  function renderTransactions(transactionList: Transaction[]) {
+    if (transactionList.length === 0) {
+      return (
+        <Box sx={{ textAlign: 'center', py: 4 }}>
+          <Typography variant="body1" color="text.secondary">
+            No transactions found
+          </Typography>
+        </Box>
+      );
+    }
+    
+    return (
+      <List sx={{ width: '100%' }}>
+        {transactionList.map((transaction) => (
+          <React.Fragment key={transaction.id}>
+            <ListItem 
+              alignItems="flex-start"
+              secondaryAction={
+                transaction.type.toLowerCase() === 'deposit' && 
+                transaction.status.toLowerCase() === 'pending' && (
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    startIcon={<UploadFile />}
+                    onClick={() => handleUploadDialogOpen(transaction.id)}
+                  >
+                    Upload Proof
+                  </Button>
+                )
+              }
+            >
+              <ListItemAvatar>
+                <Avatar sx={{ bgcolor: 'transparent' }}>
+                  {getTransactionIcon(transaction.type)}
+                </Avatar>
+              </ListItemAvatar>
+              <ListItemText
+                primary={
+                  <Box display="flex" justifyContent="space-between">
+                    <Typography variant="subtitle1">
+                      {transaction.type}{transaction.project ? ` - ${transaction.project}` : ''}
+                    </Typography>
+                    <Typography 
+                      variant="subtitle1" 
+                      color={transaction.type.toLowerCase() === 'deposit' ? 'success.main' : 
+                            (transaction.type.toLowerCase() === 'withdrawal' ? 'error.main' : 'info.main')}
+                    >
+                      {transaction.type.toLowerCase() === 'withdrawal' ? '-' : '+'} 
+                      ${transaction.amount.toLocaleString()}
+                    </Typography>
+                  </Box>
+                }
+                secondary={
+                  <>
+                    <Box display="flex" justifyContent="space-between" alignItems="center">
+                      <Typography variant="body2" color="text.secondary" component="span">
+                        {new Date(transaction.date).toLocaleString()}
+                      </Typography>
+                      {getStatusChip(transaction.status)}
+                    </Box>
+                    <Typography variant="body2" color="text.secondary">
+                      {transaction.notes}
+                    </Typography>
+                  </>
+                }
+              />
+            </ListItem>
+            <Divider variant="inset" component="li" />
+          </React.Fragment>
+        ))}
+      </List>
+    );
+  }
 };
 
 export default VirtualWallet;

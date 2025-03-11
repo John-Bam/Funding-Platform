@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -29,6 +29,7 @@ import {
   InputAdornment,
   useTheme,
   styled,
+  Alert,
 } from '@mui/material';
 import {
   AttachMoney,
@@ -49,6 +50,8 @@ import {
 } from '@mui/icons-material';
 import AppLayout from '../components/layout/AppLayout';
 import { useAuth } from '../contexts/AuthContext';
+import { projectService, investorService } from '../services/api';
+import { Project, Milestone } from '../types/types';
 
 // Styled components
 const GradientDivider = styled(Divider)(({ theme }) => ({
@@ -83,149 +86,54 @@ const TabPanel = (props: TabPanelProps) => {
   );
 };
 
-// Mock project data (would come from API in real app)
-const projectData = {
-  id: 'proj_001',
-  title: 'Smart Agriculture System',
-  short_description: 'Sustainable farming using IoT sensors and AI for crop optimization',
-  full_description: `
-    The Smart Agriculture System is an innovative solution that combines IoT sensors, AI-driven analytics, and mobile technology to help farmers optimize crop yields while reducing resource usage.
-    
-    By deploying a network of affordable sensors throughout fields, farmers can monitor soil moisture, nutrient levels, and environmental conditions in real-time. Our AI algorithms process this data to provide actionable insights and recommendations, helping farmers make data-driven decisions about irrigation, fertilization, and pest control.
-    
-    The system is designed to be affordable and accessible for smallholder farmers in developing regions, with a focus on improving productivity while promoting sustainable farming practices. Initial pilot tests have shown yield increases of up to 30% while reducing water usage by 20%.
-  `,
-  category: 'AgriTech',
-  status: 'seeking_funding',
-  funding_goal: 50000,
-  current_funding: 15000,
-  min_investment: 1000,
-  investors_count: 7,
-  created_at: '2025-02-15',
-  duration_months: 18,
-  target_location: 'Sub-Saharan Africa (Kenya, Tanzania, Uganda)',
-  selected_sdgs: ['SDG 2: Zero Hunger', 'SDG 12: Responsible Consumption and Production'],
-  impact_statement: `
-    Our Smart Agriculture System addresses critical challenges in food security, environmental sustainability, and economic development:
-    
-    1. Increases crop yields by 20-30% through optimized farming practices
-    2. Reduces water usage by 15-25% through precision irrigation
-    3. Decreases fertilizer and pesticide use by monitoring soil conditions
-    4. Improves income for smallholder farmers
-    5. Creates rural tech jobs through system implementation and maintenance
-    
-    By making precision agriculture accessible to smallholder farmers, we can help feed growing populations while protecting natural resources.
-  `,
-  milestones: [
-    {
-      id: 'mile_001',
-      title: 'Sensor Prototype Development',
-      description: 'Develop and test low-cost, solar-powered sensor units that can monitor soil moisture, temperature, and nutrient levels.',
-      expected_completion_date: '2025-05-15',
-      status: 'pending',
-      funding_percentage: 20,
-      verification_method: 'Working prototype demonstration and technical documentation',
-    },
-    {
-      id: 'mile_002',
-      title: 'AI Algorithm Development',
-      description: 'Develop machine learning algorithms to analyze sensor data and provide actionable recommendations to farmers.',
-      expected_completion_date: '2025-08-15',
-      status: 'pending',
-      funding_percentage: 25,
-      verification_method: 'Algorithm validation with test data sets and accuracy reports',
-    },
-    {
-      id: 'mile_003',
-      title: 'Mobile App Development',
-      description: 'Create a user-friendly mobile application that works offline and displays insights in simple, visual formats.',
-      expected_completion_date: '2025-10-30',
-      status: 'pending',
-      funding_percentage: 20,
-      verification_method: 'Functional app demonstration and user testing reports',
-    },
-    {
-      id: 'mile_004',
-      title: 'Field Testing',
-      description: 'Deploy the system in 10 pilot farms across different regions to validate performance and gather feedback.',
-      expected_completion_date: '2025-03-15',
-      status: 'pending',
-      funding_percentage: 25,
-      verification_method: 'Field test results and farmer testimonials',
-    },
-    {
-      id: 'mile_005',
-      title: 'Production & Distribution Setup',
-      description: 'Establish production and distribution channels for system components in target markets.',
-      expected_completion_date: '2025-07-30',
-      status: 'pending',
-      funding_percentage: 10,
-      verification_method: 'Supply chain documentation and first batch of production units',
-    },
-  ],
-  team_members: [
-    {
-      name: 'John Doe',
-      role: 'Founder & Agricultural Technologist',
-      bio: 'Former agricultural extension officer with 12 years of experience in sustainable farming practices. MSc in Agricultural Engineering.',
-      avatar: '/static/images/avatars/john.jpg',
-    },
-    {
-      name: 'Sarah Johnson',
-      role: 'Lead Engineer',
-      bio: 'IoT specialist with expertise in sensor networks and embedded systems. Previously worked at AgriTech Solutions.',
-      avatar: '/static/images/avatars/sarah.jpg',
-    },
-    {
-      name: 'Michael Chen',
-      role: 'AI & Data Scientist',
-      bio: 'PhD in Machine Learning with focus on agricultural applications. Led data science team at Innovation Labs.',
-      avatar: '/static/images/avatars/michael.jpg',
-    },
-  ],
-  documents: [
-    {
-      name: 'Business Plan.pdf',
-      size: 2450000,
-      type: 'application/pdf',
-    },
-    {
-      name: 'Technical Specifications.pdf',
-      size: 1840000,
-      type: 'application/pdf',
-    },
-    {
-      name: 'Market Analysis.pptx',
-      size: 3560000,
-      type: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-    },
-  ],
-  updates: [
-    {
-      date: '2025-03-01',
-      title: 'First Prototype Completed',
-      content: 'We\'ve completed the initial version of our soil moisture sensor prototype, achieving a battery life of over 6 months on a single charge.',
-    },
-    {
-      date: '2025-02-20',
-      title: 'New Partnership Announced',
-      content: 'We\'re excited to announce a partnership with FarmTech Solutions to help scale our distribution network across East Africa.',
-    },
-  ],
-};
-
 const ProjectDetails: React.FC = () => {
   const theme = useTheme();
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
   
+  // State for project data
+  const [project, setProject] = useState<Project | null>(null);
+  const [milestones, setMilestones] = useState<Milestone[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+  
+  // UI state
   const [tabValue, setTabValue] = useState(0);
   const [investDialogOpen, setInvestDialogOpen] = useState(false);
-  const [investAmount, setInvestAmount] = useState(projectData.min_investment);
+  const [investAmount, setInvestAmount] = useState(0);
   const [confirmInvestDialogOpen, setConfirmInvestDialogOpen] = useState(false);
   const [processing, setProcessing] = useState(false);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
+  // Fetch project data
+  useEffect(() => {
+    const fetchProjectData = async () => {
+      if (!id) return;
+
+      try {
+        setLoading(true);
+        const projectResponse = await projectService.getProjectById(id);
+        setProject(projectResponse.data);
+        
+        // Set initial invest amount to minimum investment if available
+        if (projectResponse.data.minimumInvestment) {
+          setInvestAmount(projectResponse.data.minimumInvestment);
+        }
+        
+        // Fetch milestones
+        const milestonesResponse = await projectService.getProjectMilestones(id);
+        setMilestones(milestonesResponse.data);
+      } catch (err) {
+        console.error('Error fetching project data:', err);
+        setError('Failed to load project data. Please try again later.');
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchProjectData();
+  }, [id]);
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
   };
@@ -236,7 +144,6 @@ const ProjectDetails: React.FC = () => {
   
   const handleInvestDialogClose = () => {
     setInvestDialogOpen(false);
-    setInvestAmount(projectData.min_investment);
   };
   
   const handleProceedToConfirm = () => {
@@ -249,28 +156,86 @@ const ProjectDetails: React.FC = () => {
   };
   
   const handleConfirmInvestment = async () => {
+    if (!project) return;
+    
     setProcessing(true);
     
     try {
-      // In a real app, this would make an API call to process the investment
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      await investorService.investInProject(project.id, investAmount);
       
       // Close dialog and show success state
       setConfirmInvestDialogOpen(false);
+      setSuccessMessage(`Successfully invested $${investAmount.toLocaleString()} in ${project.title}`);
       
-      // Refresh project data
-      // This would fetch updated project data in a real app
-    } catch (error) {
-      console.error('Error processing investment:', error);
+      // Refresh project data after a short delay
+      setTimeout(async () => {
+        if (id) {
+          const projectResponse = await projectService.getProjectById(id);
+          setProject(projectResponse.data);
+        }
+      }, 2000);
+    } catch (err) {
+      console.error('Error processing investment:', err);
+      setError('Failed to process investment. Please try again later.');
     } finally {
       setProcessing(false);
     }
   };
   
   const getFundingProgress = () => {
-    return (projectData.current_funding / projectData.funding_goal) * 100;
+    if (!project || !project.currentFunding) return 0;
+    return (project.currentFunding / project.fundingGoal) * 100;
   };
   
+  const getStatusColor = (status: string | undefined) => {
+    if (!status) return "default";
+    
+    switch (status) {
+      case 'SeekingFunding':
+        return "primary";
+      case 'PartiallyFunded':
+        return "warning";
+      case 'FullyFunded':
+        return "success";
+      default:
+        return "default";
+    }
+  };
+  
+  const getFormattedStatus = (status: string | undefined) => {
+    if (!status) return '';
+    
+    // Convert camelCase to space-separated words
+    return status.replace(/([A-Z])/g, ' $1').trim();
+  };
+
+  if (loading) {
+    return (
+      <AppLayout>
+        <Box display="flex" justifyContent="center" alignItems="center" height="50vh">
+          <CircularProgress />
+        </Box>
+      </AppLayout>
+    );
+  }
+
+  if (error || !project) {
+    return (
+      <AppLayout>
+        <Alert severity="error" sx={{ mt: 2 }}>
+          {error || "Project not found"}
+        </Alert>
+        <Button
+          variant="contained"
+          startIcon={<ArrowBack />}
+          onClick={() => navigate('/projects')}
+          sx={{ mt: 2 }}
+        >
+          Back to Projects
+        </Button>
+      </AppLayout>
+    );
+  }
   return (
     <AppLayout>
       <Box sx={{ mb: 4 }}>
@@ -293,11 +258,17 @@ const ProjectDetails: React.FC = () => {
               WebkitTextFillColor: "transparent",
             }}
           >
-            {projectData.title}
+            {project.title}
           </Typography>
         </Box>
         
         <GradientDivider />
+        
+        {successMessage && (
+          <Alert severity="success" sx={{ mb: 3 }}>
+            {successMessage}
+          </Alert>
+        )}
         
         <Grid container spacing={3}>
           {/* Project Overview */}
@@ -308,25 +279,19 @@ const ProjectDetails: React.FC = () => {
                   <Box>
                     <Box display="flex" alignItems="center" mb={1}>
                       <Chip
-                        label={projectData.category}
+                        label={project.category}
                         color="primary"
                         size="small"
                         sx={{ mr: 1 }}
                       />
                       <Chip
-                        label={projectData.status.replace('_', ' ')}
-                        color={
-                          projectData.status === 'seeking_funding'
-                            ? 'primary'
-                            : projectData.status === 'partially_funded'
-                            ? 'warning'
-                            : 'success'
-                        }
+                        label={getFormattedStatus(project.status)}
+                        color={getStatusColor(project.status)}
                         size="small"
                       />
                     </Box>
                     <Typography variant="body1">
-                      {projectData.short_description}
+                      {project.description}
                     </Typography>
                   </Box>
                   <Box display="flex">
@@ -348,7 +313,7 @@ const ProjectDetails: React.FC = () => {
                       {getFundingProgress().toFixed(0)}% Funded
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
-                      ${projectData.current_funding.toLocaleString()} of ${projectData.funding_goal.toLocaleString()}
+                      ${(project.currentFunding || 0).toLocaleString()} of ${project.fundingGoal.toLocaleString()}
                     </Typography>
                   </Box>
                   <LinearProgress
@@ -358,10 +323,10 @@ const ProjectDetails: React.FC = () => {
                   />
                   <Box display="flex" justifyContent="space-between">
                     <Typography variant="body2" color="text.secondary">
-                      {projectData.investors_count} investors
+                      {project.investorsCount || 0} investors
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
-                      Min. Investment: ${projectData.min_investment.toLocaleString()}
+                      Min. Investment: ${(project.minimumInvestment || 1000).toLocaleString()}
                     </Typography>
                   </Box>
                 </Box>
@@ -370,30 +335,32 @@ const ProjectDetails: React.FC = () => {
                   <Box display="flex" alignItems="center">
                     <CalendarToday fontSize="small" sx={{ mr: 1, color: 'text.secondary' }} />
                     <Typography variant="body2" color="text.secondary">
-                      Duration: {projectData.duration_months} months
+                      Duration: {project.durationMonths || 12} months
                     </Typography>
                   </Box>
                   <Box display="flex" alignItems="center">
                     <LocationOn fontSize="small" sx={{ mr: 1, color: 'text.secondary' }} />
                     <Typography variant="body2" color="text.secondary">
-                      Location: {projectData.target_location}
+                      Location: {project.geoFocus || "Global"}
                     </Typography>
                   </Box>
                 </Box>
                 
                 {/* SDGs */}
-                <Box sx={{ mb: 2 }}>
-                  <Typography variant="subtitle2" gutterBottom>
-                    Sustainable Development Goals:
-                  </Typography>
-                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                    {projectData.selected_sdgs.map((sdg) => (
-                      <Chip key={sdg} label={sdg.split(':')[0]} size="small" />
-                    ))}
+                {project.sdgAlignment && project.sdgAlignment.length > 0 && (
+                  <Box sx={{ mb: 2 }}>
+                    <Typography variant="subtitle2" gutterBottom>
+                      Sustainable Development Goals:
+                    </Typography>
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                      {project.sdgAlignment.map((sdg) => (
+                        <Chip key={sdg} label={sdg.split(':')[0] || sdg} size="small" />
+                      ))}
+                    </Box>
                   </Box>
-                </Box>
+                )}
                 
-                {user?.role === 'Investor' && projectData.status !== 'fully_funded' && (
+                {user?.role === 'Investor' && project.status !== 'FullyFunded' && (
                   <Button
                     variant="contained"
                     color="primary"
@@ -428,63 +395,74 @@ const ProjectDetails: React.FC = () => {
               {/* Overview Tab */}
               <TabPanel value={tabValue} index={0}>
                 <Typography variant="body1" sx={{ whiteSpace: 'pre-line' }}>
-                  {projectData.full_description}
+                  {project.fullDescription || project.description}
                 </Typography>
                 
-                <Typography variant="h6" sx={{ mt: 4, mb: 2 }}>
-                  Documents
-                </Typography>
-                <List>
-                  {projectData.documents.map((doc, index) => (
-                    <ListItem 
-                      key={index} 
-                      sx={{ 
-                        backgroundColor: 'rgba(255, 255, 255, 0.05)', 
-                        mb: 1, 
-                        borderRadius: 1,
-                      }}
-                    >
-                      <ListItemAvatar>
-                        <Avatar sx={{ backgroundColor: theme.palette.primary.main }}>
-                          <Description />
-                        </Avatar>
-                      </ListItemAvatar>
-                      <ListItemText
-                        primary={doc.name}
-                        secondary={`${(doc.size / 1024 / 1024).toFixed(2)} MB`}
-                      />
-                      <Button startIcon={<Download />}>Download</Button>
-                    </ListItem>
-                  ))}
-                </List>
+                {project.documents && project.documents.length > 0 && (
+                  <>
+                    <Typography variant="h6" sx={{ mt: 4, mb: 2 }}>
+                      Documents
+                    </Typography>
+                    <List>
+                      {project.documents.map((doc, index) => (
+                        <ListItem 
+                          key={index} 
+                          sx={{ 
+                            backgroundColor: 'rgba(255, 255, 255, 0.05)', 
+                            mb: 1, 
+                            borderRadius: 1,
+                          }}
+                        >
+                          <ListItemAvatar>
+                            <Avatar sx={{ backgroundColor: theme.palette.primary.main }}>
+                              <Description />
+                            </Avatar>
+                          </ListItemAvatar>
+                          <ListItemText
+                            primary={doc}
+                            secondary={`Document ${index + 1}`}
+                          />
+                          <Button startIcon={<Download />}>Download</Button>
+                        </ListItem>
+                      ))}
+                    </List>
+                  </>
+                )}
               </TabPanel>
               
               {/* Team Tab */}
               <TabPanel value={tabValue} index={1}>
                 <Grid container spacing={3}>
-                  {projectData.team_members.map((member, index) => (
-                    <Grid item xs={12} md={6} key={index}>
-                      <Card sx={{ height: '100%' }}>
-                        <CardContent>
-                          <Box display="flex" alignItems="center" mb={2}>
-                            <Avatar 
-                              src={member.avatar} 
-                              sx={{ width: 60, height: 60, mr: 2 }}
-                            >
-                              {member.name.charAt(0)}
-                            </Avatar>
-                            <Box>
-                              <Typography variant="h6">{member.name}</Typography>
-                              <Typography variant="body2" color="text.secondary">
-                                {member.role}
-                              </Typography>
+                  {project.teamMembers ? (
+                    project.teamMembers.map((member, index) => (
+                      <Grid item xs={12} md={6} key={index}>
+                        <Card sx={{ height: '100%' }}>
+                          <CardContent>
+                            <Box display="flex" alignItems="center" mb={2}>
+                              <Avatar 
+                                sx={{ width: 60, height: 60, mr: 2 }}
+                              >
+                                {member.name?.charAt(0)}
+                              </Avatar>
+                              <Box>
+                                <Typography variant="h6">{member.name}</Typography>
+                                <Typography variant="body2" color="text.secondary">
+                                  {member.role}
+                                </Typography>
+                              </Box>
                             </Box>
-                          </Box>
-                          <Typography variant="body2">{member.bio}</Typography>
-                        </CardContent>
-                      </Card>
+                            <Typography variant="body2">{member.bio}</Typography>
+                          </CardContent>
+                        </Card>
+                      </Grid>
+                    ))
+                  ) : (
+                    <Grid item xs={12}>
+                      <Typography variant="body1" color="text.secondary" align="center">
+                        Team information not available
+                      </Typography>
                     </Grid>
-                  ))}
+                  )}
                 </Grid>
               </TabPanel>
               
@@ -494,88 +472,97 @@ const ProjectDetails: React.FC = () => {
                   <Typography variant="subtitle1" gutterBottom>
                     Project Timeline
                   </Typography>
-                  {projectData.milestones.map((milestone, index) => (
-                    <Box
-                      key={milestone.id}
-                      sx={{
-                        position: 'relative',
-                        mb: 3,
-                        pb: 3,
-                        borderLeft: `2px solid ${theme.palette.divider}`,
-                        pl: 3,
-                        '&:last-child': {
-                          mb: 0,
-                          pb: 0,
-                          borderLeft: 'none',
-                        },
-                      }}
-                    >
+                  {milestones.length > 0 ? (
+                    milestones.map((milestone, index) => (
                       <Box
+                        key={milestone.id}
                         sx={{
-                          position: 'absolute',
-                          left: -9,
-                          top: 0,
-                          width: 16,
-                          height: 16,
-                          borderRadius: '50%',
-                          bgcolor: milestone.status === 'completed' ? theme.palette.success.main : theme.palette.primary.main,
-                          border: `2px solid ${theme.palette.background.paper}`,
+                          position: 'relative',
+                          mb: 3,
+                          pb: 3,
+                          borderLeft: `2px solid ${theme.palette.divider}`,
+                          pl: 3,
+                          '&:last-child': {
+                            mb: 0,
+                            pb: 0,
+                            borderLeft: 'none',
+                          },
                         }}
-                      />
-                      <Box display="flex" justifyContent="space-between" alignItems="flex-start">
-                        <Box>
-                          <Typography variant="h6">
-                            {milestone.title}
-                          </Typography>
-                          <Typography variant="body2" color="text.secondary" gutterBottom>
-                            Expected: {new Date(milestone.expected_completion_date).toLocaleDateString()}
-                          </Typography>
-                        </Box>
-                        <Chip
-                          label={`${milestone.funding_percentage}%`}
-                          color="primary"
-                          variant="outlined"
+                      >
+                        <Box
+                          sx={{
+                            position: 'absolute',
+                            left: -9,
+                            top: 0,
+                            width: 16,
+                            height: 16,
+                            borderRadius: '50%',
+                            bgcolor: milestone.status === 'Approved' ? theme.palette.success.main : theme.palette.primary.main,
+                            border: `2px solid ${theme.palette.background.paper}`,
+                          }}
                         />
+                        <Box display="flex" justifyContent="space-between" alignItems="flex-start">
+                          <Box>
+                            <Typography variant="h6">
+                              {milestone.title}
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary" gutterBottom>
+                            Expected: {new Date(milestone.targetCompletionDate || '').toLocaleDateString()}
+                            </Typography>
+                          </Box>
+                          <Chip
+                            label={`${Math.round((milestone.fundingRequired / project.fundingGoal) * 100)}%`}
+                            color="primary"
+                            variant="outlined"
+                          />
+                        </Box>
+                        <Typography variant="body2" sx={{ mt: 1 }}>
+                          {milestone.description}
+                        </Typography>
                       </Box>
-                      <Typography variant="body2" sx={{ mt: 1 }}>
-                        {milestone.description}
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                        Verification: {milestone.verification_method}
-                      </Typography>
-                    </Box>
-                  ))}
+                    ))
+                  ) : (
+                    <Typography variant="body1" color="text.secondary" align="center">
+                      No milestones available
+                    </Typography>
+                  )}
                 </Box>
               </TabPanel>
               
               {/* Impact Tab */}
               <TabPanel value={tabValue} index={3}>
                 <Typography variant="body1" sx={{ whiteSpace: 'pre-line' }}>
-                  {projectData.impact_statement}
+                  {project.impactStatement || "Impact information not available"}
                 </Typography>
               </TabPanel>
               
               {/* Updates Tab */}
               <TabPanel value={tabValue} index={4}>
-                {projectData.updates.map((update, index) => (
-                  <Paper
-                    key={index}
-                    sx={{
-                      p: 3,
-                      mb: 2,
-                      backgroundColor: 'rgba(255, 255, 255, 0.03)',
-                    }}
-                  >
-                    <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
-                      <Typography variant="h6">{update.title}</Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        {new Date(update.date).toLocaleDateString()}
-                      </Typography>
-                    </Box>
-                    <Divider sx={{ mb: 2 }} />
-                    <Typography variant="body1">{update.content}</Typography>
-                  </Paper>
-                ))}
+                {project.updates && project.updates.length > 0 ? (
+                  project.updates.map((update, index) => (
+                    <Paper
+                      key={index}
+                      sx={{
+                        p: 3,
+                        mb: 2,
+                        backgroundColor: 'rgba(255, 255, 255, 0.03)',
+                      }}
+                    >
+                      <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
+                        <Typography variant="h6">{update.title}</Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          {new Date(update.date).toLocaleDateString()}
+                        </Typography>
+                      </Box>
+                      <Divider sx={{ mb: 2 }} />
+                      <Typography variant="body1">{update.content}</Typography>
+                    </Paper>
+                  ))
+                ) : (
+                  <Typography variant="body1" color="text.secondary" align="center">
+                    No updates available
+                  </Typography>
+                )}
               </TabPanel>
             </Paper>
           </Grid>
@@ -588,17 +575,16 @@ const ProjectDetails: React.FC = () => {
               </Typography>
               <Box display="flex" alignItems="center" mb={2}>
                 <Avatar 
-                  src={projectData.team_members[0].avatar}
                   sx={{ width: 50, height: 50, mr: 2 }}
                 >
-                  {projectData.team_members[0].name.charAt(0)}
+                  {project.innovator?.charAt(0) || 'I'}
                 </Avatar>
                 <Box>
                   <Typography variant="subtitle1">
-                    {projectData.team_members[0].name}
+                    {project.innovator || 'Project Creator'}
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
-                    {projectData.team_members[0].role}
+                    Innovator
                   </Typography>
                 </Box>
               </Box>
@@ -627,31 +613,31 @@ const ProjectDetails: React.FC = () => {
                 <ListItem sx={{ px: 0 }}>
                   <ListItemText
                     primary="Funding Goal"
-                    secondary={`$${projectData.funding_goal.toLocaleString()}`}
+                    secondary={`$${project.fundingGoal.toLocaleString()}`}
                   />
                 </ListItem>
                 <ListItem sx={{ px: 0 }}>
                   <ListItemText
                     primary="Current Funding"
-                    secondary={`$${projectData.current_funding.toLocaleString()} (${getFundingProgress().toFixed(0)}%)`}
+                    secondary={`$${(project.currentFunding || 0).toLocaleString()} (${getFundingProgress().toFixed(0)}%)`}
                   />
                 </ListItem>
                 <ListItem sx={{ px: 0 }}>
                   <ListItemText
                     primary="Minimum Investment"
-                    secondary={`$${projectData.min_investment.toLocaleString()}`}
+                    secondary={`$${(project.minimumInvestment || 1000).toLocaleString()}`}
                   />
                 </ListItem>
                 <ListItem sx={{ px: 0 }}>
                   <ListItemText
                     primary="Number of Investors"
-                    secondary={projectData.investors_count}
+                    secondary={project.investorsCount || 0}
                   />
                 </ListItem>
                 <ListItem sx={{ px: 0 }}>
                   <ListItemText
                     primary="Project Created"
-                    secondary={new Date(projectData.created_at).toLocaleDateString()}
+                    secondary={new Date(project.submittedDate).toLocaleDateString()}
                   />
                 </ListItem>
               </List>
@@ -662,6 +648,7 @@ const ProjectDetails: React.FC = () => {
                 Similar Projects
               </Typography>
               <List>
+                {/* This would ideally be populated from an API call for similar projects */}
                 <ListItem
                   component="div"
                   sx={{
@@ -670,7 +657,7 @@ const ProjectDetails: React.FC = () => {
                     borderRadius: 1,
                     cursor: 'pointer',
                   }}
-                  onClick={() => navigate('/projects/proj_002')}
+                  onClick={() => navigate('/projects')}
                 >
                   <ListItemAvatar>
                     <Avatar sx={{ bgcolor: theme.palette.primary.main }}>
@@ -678,47 +665,8 @@ const ProjectDetails: React.FC = () => {
                     </Avatar>
                   </ListItemAvatar>
                   <ListItemText
-                    primary="Clean Water Initiative"
-                    secondary="Water purification technology for rural communities"
-                  />
-                </ListItem>
-                <ListItem
-                  component="div"
-                  sx={{
-                    mb: 1,
-                    backgroundColor: 'rgba(255, 255, 255, 0.03)',
-                    borderRadius: 1,
-                    cursor: 'pointer',
-                  }}
-                  onClick={() => navigate('/projects/proj_003')}
-                >
-                  <ListItemAvatar>
-                    <Avatar sx={{ bgcolor: theme.palette.secondary.main }}>
-                      <BusinessCenter />
-                    </Avatar>
-                  </ListItemAvatar>
-                  <ListItemText
-                    primary="Digital Farming Assistant"
-                    secondary="Mobile app for smallholder farmers"
-                  />
-                </ListItem>
-                <ListItem
-                  component="div"
-                  sx={{
-                    backgroundColor: 'rgba(255, 255, 255, 0.03)',
-                    borderRadius: 1,
-                    cursor: 'pointer',
-                  }}
-                  onClick={() => navigate('/projects/proj_004')}
-                >
-                  <ListItemAvatar>
-                    <Avatar sx={{ bgcolor: theme.palette.tertiary.main }}>
-                      <BusinessCenter />
-                    </Avatar>
-                  </ListItemAvatar>
-                  <ListItemText
-                    primary="Sustainable Drip Irrigation"
-                    secondary="Low-cost irrigation solutions for dry regions"
+                    primary="Browse Similar Projects"
+                    secondary="Find more projects in this category"
                   />
                 </ListItem>
               </List>
@@ -728,10 +676,10 @@ const ProjectDetails: React.FC = () => {
         
         {/* Investment Dialog */}
         <Dialog open={investDialogOpen} onClose={handleInvestDialogClose}>
-          <DialogTitle>Invest in {projectData.title}</DialogTitle>
+          <DialogTitle>Invest in {project.title}</DialogTitle>
           <DialogContent>
             <DialogContentText gutterBottom>
-              How much would you like to invest? The minimum investment is ${projectData.min_investment.toLocaleString()}.
+              How much would you like to invest? The minimum investment is ${(project.minimumInvestment || 1000).toLocaleString()}.
             </DialogContentText>
             <TextField
               fullWidth
@@ -741,12 +689,12 @@ const ProjectDetails: React.FC = () => {
               onChange={(e) => setInvestAmount(Number(e.target.value))}
               InputProps={{
                 startAdornment: <InputAdornment position="start">$</InputAdornment>,
-                inputProps: { min: projectData.min_investment },
+                inputProps: { min: project.minimumInvestment || 1000 },
               }}
-              error={investAmount < projectData.min_investment}
+              error={investAmount < (project.minimumInvestment || 1000)}
               helperText={
-                investAmount < projectData.min_investment
-                  ? `Minimum investment is ${projectData.min_investment.toLocaleString()}`
+                investAmount < (project.minimumInvestment || 1000)
+                  ? `Minimum investment is $${(project.minimumInvestment || 1000).toLocaleString()}`
                   : ''
               }
               sx={{ mt: 2 }}
@@ -758,7 +706,7 @@ const ProjectDetails: React.FC = () => {
               onClick={handleProceedToConfirm}
               variant="contained"
               color="primary"
-              disabled={investAmount < projectData.min_investment}
+              disabled={investAmount < (project.minimumInvestment || 1000)}
             >
               Proceed
             </Button>
@@ -770,7 +718,7 @@ const ProjectDetails: React.FC = () => {
           <DialogTitle>Confirm Your Investment</DialogTitle>
           <DialogContent>
             <DialogContentText gutterBottom>
-              Please confirm your investment of ${investAmount.toLocaleString()} in {projectData.title}.
+              Please confirm your investment of ${investAmount.toLocaleString()} in {project.title}.
             </DialogContentText>
             <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
               By confirming, you agree to our investment terms and conditions. Funds will be held in escrow and released according to the milestone schedule.

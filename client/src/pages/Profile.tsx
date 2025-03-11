@@ -1,4 +1,6 @@
-import React, { useState } from 'react';
+
+// client/src/pages/Profile.tsx
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Grid,
@@ -23,6 +25,7 @@ import {
   IconButton,
   useTheme,
   styled,
+  CircularProgress,
 } from '@mui/material';
 import {
   Person,
@@ -42,6 +45,7 @@ import {
 } from '@mui/icons-material';
 import AppLayout from '../components/layout/AppLayout';
 import { useAuth } from '../contexts/AuthContext';
+import { userService, investorService } from '../services/api';
 
 // Styled components
 const GradientDivider = styled(Divider)(({ theme }) => ({
@@ -62,20 +66,23 @@ const Profile: React.FC = () => {
   const theme = useTheme();
   const { user } = useAuth();
   
-  // Mock user data (will be replaced with real data from API)
-  const userData = {
-    full_name: 'John Doe',
-    email: 'john@example.com',
-    phone_number: '+1 (555) 123-4567',
-    date_of_birth: '1985-06-15',
-    address: '123 Innovation St, Tech City, CA 94103',
-    role: 'Innovator',
-    status: 'Verified',
-    created_at: '2025-01-10',
-  };
+  // State for profile data and loading
+  const [loading, setLoading] = useState<boolean>(true);
+  const [profileData, setProfileData] = useState({
+    full_name: '',
+    email: '',
+    phone_number: '',
+    date_of_birth: '',
+    address: '',
+    role: '',
+    status: '',
+    created_at: '',
+  });
+  
+  // State for stats (for investors or innovators)
+  const [stats, setStats] = useState<any>(null);
   
   const [editMode, setEditMode] = useState(false);
-  const [profileData, setProfileData] = useState(userData);
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
   const [passwordData, setPasswordData] = useState({
     currentPassword: '',
@@ -87,6 +94,37 @@ const Profile: React.FC = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [success, setSuccess] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  
+  // Fetch user profile data
+  useEffect(() => {
+    const fetchProfileData = async () => {
+      try {
+        setLoading(true);
+        const response = await userService.getUserProfile();
+        
+        // Fetch role-specific stats
+        if (response.data.role === 'Investor') {
+          const investorData = await investorService.getInvestorProfile();
+          setStats(investorData.data);
+        } else if (response.data.role === 'Innovator') {
+          // For innovators, we'll get this from project service later
+          setStats({
+            projects: 7,
+            activateProjects: 3,
+            milestones: 18,
+            fundingRaised: 142000
+          });
+        }
+      } catch (err) {
+        console.error('Error fetching profile data:', err);
+        setError('Failed to load profile data. Please try again later.');
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchProfileData();
+  }, []);
   
   const handleProfileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setProfileData({
@@ -102,14 +140,22 @@ const Profile: React.FC = () => {
     });
   };
   
-  const handleSaveProfile = () => {
-    // API call to update profile would go here
-    setSuccess('Profile updated successfully!');
-    setTimeout(() => setSuccess(null), 3000);
-    setEditMode(false);
+  const handleSaveProfile = async () => {
+    try {
+      setLoading(true);
+      await userService.updateUserProfile(profileData);
+      setSuccess('Profile updated successfully!');
+      setEditMode(false);
+    } catch (err) {
+      console.error('Error updating profile:', err);
+      setError('Failed to update profile. Please try again.');
+    } finally {
+      setLoading(false);
+      setTimeout(() => setSuccess(null), 3000);
+    }
   };
   
-  const handleChangePassword = () => {
+  const handleChangePassword = async () => {
     // Validation
     if (passwordData.newPassword !== passwordData.confirmPassword) {
       setError('New passwords do not match');
@@ -121,15 +167,27 @@ const Profile: React.FC = () => {
       return;
     }
     
-    // API call to change password would go here
-    setSuccess('Password changed successfully!');
-    setTimeout(() => setSuccess(null), 3000);
-    setPasswordData({
-      currentPassword: '',
-      newPassword: '',
-      confirmPassword: '',
-    });
-    setChangePasswordOpen(false);
+    try {
+      setLoading(true);
+      await userService.changePassword(
+        passwordData.currentPassword,
+        passwordData.newPassword
+      );
+      
+      setSuccess('Password changed successfully!');
+      setPasswordData({
+        currentPassword: '',
+        newPassword: '',
+        confirmPassword: '',
+      });
+      setChangePasswordOpen(false);
+    } catch (err) {
+      console.error('Error changing password:', err);
+      setError('Failed to change password. Please check your current password and try again.');
+    } finally {
+      setLoading(false);
+      setTimeout(() => setSuccess(null), 3000);
+    }
   };
   
   const toggleShowCurrentPassword = () => {
@@ -143,6 +201,17 @@ const Profile: React.FC = () => {
   const toggleShowConfirmPassword = () => {
     setShowConfirmPassword(!showConfirmPassword);
   };
+
+  // If loading, show a loading indicator
+  if (loading && !profileData.email) {
+    return (
+      <AppLayout>
+        <Box display="flex" justifyContent="center" alignItems="center" height="50vh">
+          <CircularProgress />
+        </Box>
+      </AppLayout>
+    );
+  }
 
   return (
     <AppLayout>
@@ -186,6 +255,7 @@ const Profile: React.FC = () => {
                   variant="outlined"
                   startIcon={editMode ? <Close /> : <Edit />}
                   onClick={() => setEditMode(!editMode)}
+                  disabled={loading}
                 >
                   {editMode ? 'Cancel' : 'Edit Profile'}
                 </Button>
@@ -300,10 +370,11 @@ const Profile: React.FC = () => {
                       <Button
                         variant="contained"
                         color="primary"
-                        startIcon={<Check />}
+                        startIcon={loading ? <CircularProgress size={20} /> : <Check />}
                         onClick={handleSaveProfile}
+                        disabled={loading}
                       >
-                        Save Changes
+                        {loading ? 'Saving...' : 'Save Changes'}
                       </Button>
                     </Box>
                   </Grid>
@@ -393,6 +464,7 @@ const Profile: React.FC = () => {
                   <Button
                     variant="outlined"
                     onClick={() => setChangePasswordOpen(true)}
+                    disabled={loading}
                   >
                     Change Password
                   </Button>
@@ -465,7 +537,7 @@ const Profile: React.FC = () => {
               </Button>
             </Paper>
             
-            {profileData.role === 'Innovator' && (
+            {profileData.role === 'Innovator' && stats && (
               <Paper sx={{ p: 3 }}>
                 <Typography variant="h6" gutterBottom>
                   Innovator Stats
@@ -474,26 +546,26 @@ const Profile: React.FC = () => {
                   <ListItem>
                     <ListItemText
                       primary="Projects"
-                      secondary="7 total (3 active)"
+                      secondary={`${stats.projects} total (${stats.activateProjects} active)`}
                     />
                   </ListItem>
                   <ListItem>
                     <ListItemText
                       primary="Milestones"
-                      secondary="18 completed"
+                      secondary={`${stats.milestones} completed`}
                     />
                   </ListItem>
                   <ListItem>
                     <ListItemText
                       primary="Funding Raised"
-                      secondary="$142,000"
+                      secondary={`$${stats.fundingRaised.toLocaleString()}`}
                     />
                   </ListItem>
                 </List>
               </Paper>
             )}
             
-            {profileData.role === 'Investor' && (
+            {profileData.role === 'Investor' && stats && (
               <Paper sx={{ p: 3 }}>
                 <Typography variant="h6" gutterBottom>
                   Investor Stats
@@ -502,19 +574,19 @@ const Profile: React.FC = () => {
                   <ListItem>
                     <ListItemText
                       primary="Investments"
-                      secondary="12 projects"
+                      secondary={`${stats.investments} projects`}
                     />
                   </ListItem>
                   <ListItem>
                     <ListItemText
                       primary="Total Invested"
-                      secondary="$195,000"
+                      secondary={`$${stats.totalInvested.toLocaleString()}`}
                     />
                   </ListItem>
                   <ListItem>
                     <ListItemText
                       primary="Active Syndicates"
-                      secondary="3"
+                      secondary={stats.activeSyndicates}
                     />
                   </ListItem>
                 </List>
@@ -606,9 +678,10 @@ const Profile: React.FC = () => {
             onClick={handleChangePassword} 
             variant="contained" 
             color="primary"
-            disabled={!passwordData.currentPassword || !passwordData.newPassword || !passwordData.confirmPassword}
+            disabled={!passwordData.currentPassword || !passwordData.newPassword || !passwordData.confirmPassword || loading}
+            startIcon={loading ? <CircularProgress size={20} /> : null}
           >
-            Change Password
+            {loading ? 'Processing...' : 'Change Password'}
           </Button>
         </DialogActions>
       </Dialog>

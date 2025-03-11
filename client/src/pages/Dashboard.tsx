@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -25,6 +25,8 @@ import {
   DialogContentText,
   DialogActions,
   TextField,
+  CircularProgress,
+  Alert,
 } from '@mui/material';
 import {
   AttachMoney,
@@ -59,6 +61,16 @@ import AppLayout from '../components/layout/AppLayout';
 import { useAuth } from '../contexts/AuthContext';
 import VirtualWallet from '../components/wallet/VirtualWallet';
 
+// Services
+import { 
+  projectService, 
+  investorService, 
+  walletService, 
+  messageService, 
+  notificationService,
+  userService 
+} from '../services/api';
+
 // Styled components
 const GlassCard = styled(Card)(({ theme }) => ({
   backgroundColor: 'rgba(40, 40, 40, 0.7)',
@@ -91,122 +103,142 @@ const GradientDivider = styled(Divider)(({ theme }) => ({
   marginBottom: theme.spacing(2),
 }));
 
-// Sample data
-const fundingData = [
-  { month: 'Jan', amount: 12000 },
-  { month: 'Feb', amount: 19000 },
-  { month: 'Mar', amount: 15000 },
-  { month: 'Apr', amount: 28000 },
-  { month: 'May', amount: 32000 },
-  { month: 'Jun', amount: 38000 },
-  { month: 'Jul', amount: 42000 },
-];
-
-const projectStatusData = [
-  { name: 'Seeking Funding', value: 5 },
-  { name: 'In Progress', value: 7 },
-  { name: 'Completed', value: 3 },
-];
-
-const milestoneData = [
-  { month: 'Jan', completed: 3, pending: 2 },
-  { month: 'Feb', completed: 4, pending: 3 },
-  { month: 'Mar', completed: 5, pending: 2 },
-  { month: 'Apr', completed: 6, pending: 1 },
-  { month: 'May', completed: 4, pending: 3 },
-  { month: 'Jun', completed: 7, pending: 2 },
-];
-
-const recentProjects = [
-  {
-    id: 'proj_001',
-    title: 'Smart Agriculture System',
-    status: 'seeking_funding',
-    funding: '20%',
-    category: 'AgriTech',
-  },
-  {
-    id: 'proj_002',
-    title: 'Clean Water Initiative',
-    status: 'in_progress',
-    funding: '75%',
-    category: 'CleanTech',
-  },
-  {
-    id: 'proj_003',
-    title: 'Solar Micro-Grids',
-    status: 'fully_funded',
-    funding: '100%',
-    category: 'Energy',
-  },
-];
-
-const upcomingMilestones = [
-  {
-    id: 'mile_001',
-    project: 'Smart Agriculture System',
-    description: 'Develop prototype',
-    dueDate: '2025-04-15',
-  },
-  {
-    id: 'mile_002',
-    project: 'Clean Water Initiative',
-    description: 'Field testing phase',
-    dueDate: '2025-04-10',
-  },
-  {
-    id: 'mile_003',
-    project: 'Solar Micro-Grids',
-    description: 'Manufacturing setup',
-    dueDate: '2025-04-22',
-  },
-];
-
-// Sample messages for the dashboard
-const recentMessages = [
-  {
-    id: 'msg_001',
-    from: 'Admin',
-    fromId: 'user_001',
-    subject: 'Your project has been approved',
-    content: 'Congratulations! Your project "Smart Agriculture System" has been approved and is now seeking funding.',
-    received: '2025-03-08',
-    read: false,
-  },
-  {
-    id: 'msg_002',
-    from: 'Sarah Johnson',
-    fromId: 'user_002',
-    subject: 'Question about your project',
-    content: 'Hello, I\'m interested in investing in your Clean Water Initiative. Could you provide more details about your implementation timeline?',
-    received: '2025-03-09',
-    read: true,
-  },
-  {
-    id: 'msg_003',
-    from: 'System',
-    fromId: 'system',
-    subject: 'Milestone deadline approaching',
-    content: 'Your milestone "Develop prototype" for Smart Agriculture System is due in 7 days. Please ensure you\'re on track to meet this deadline.',
-    received: '2025-03-10',
-    read: false,
-  },
-];
 const Dashboard: React.FC = () => {
   const theme = useTheme();
   const navigate = useNavigate();
   const { user } = useAuth();
   
+  // State for data
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+  const [dashboardData, setDashboardData] = useState<any>(null);
+  const [projects, setProjects] = useState<any[]>([]);
+  const [messages, setMessages] = useState<any[]>([]);
+  const [milestones, setMilestones] = useState<any[]>([]);
+  const [chartData, setChartData] = useState<any[]>([]);
+  
+  // UI state
   const [messageDialogOpen, setMessageDialogOpen] = useState(false);
   const [replyDialogOpen, setReplyDialogOpen] = useState(false);
   const [selectedMessage, setSelectedMessage] = useState<any>(null);
   const [replyContent, setReplyContent] = useState('');
 
-  const COLORS = [theme.palette.primary.main, theme.palette.secondary.main, theme.palette.tertiary.main];
+  // Fetch dashboard data based on user role
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      if (!user) return;
+      
+      try {
+        setLoading(true);
+        
+        // Fetch common data for all users
+        const messagesResponse = await messageService.getMessages();
+        setMessages(messagesResponse.data);
+        
+        // Fetch role-specific data
+        if (user.role === 'Innovator' || user.role === 'Investor') {
+          // Get user stats (works for both roles)
+          const statsResponse = await userService.getUserStats();
+          setDashboardData(statsResponse.data);
+          
+          // Fetch projects - for innovators, their projects; for investors, available projects
+          const projectsResponse = await projectService.getProjects();
+          setProjects(projectsResponse.data);
+          
+          // Fetch milestones for the most recent project
+          if (projectsResponse.data.length > 0) {
+            const milestonesResponse = await projectService.getProjectMilestones(
+              projectsResponse.data[0].id
+            );
+            setMilestones(milestonesResponse.data);
+          }
+          
+          // Fetch chart data (will be different for each role)
+          // This would normally come from a dedicated API endpoint
+          try {
+            const transactionStatsResponse = await walletService.getTransactionStats();
+            setChartData(transactionStatsResponse.data.monthlyData || []);
+          } catch (statsError) {
+            console.error('Error fetching transaction stats:', statsError);
+            // Fallback: create chart data from projects
+            const chartDataArray = projectsResponse.data.slice(0, 7).map((project: any) => ({
+              month: new Date(project.submittedDate).toLocaleString('default', { month: 'short' }),
+              amount: project.currentFunding || 0
+            }));
+            
+            setChartData(chartDataArray);
+          }
+        }
+        else if (user.role === 'Admin' || user.role === 'EscrowManager') {
+          // Admin would have dedicated endpoints for dashboard stats
+          try {
+            const adminStatsResponse = await userService.getAdminStats();
+            setDashboardData(adminStatsResponse.data);
+          } catch (adminError) {
+            console.error('Error fetching admin stats:', adminError);
+            
+            // Fallback: Get projects and adapt the data
+            const projectsResponse = await projectService.getProjects();
+            setProjects(projectsResponse.data);
+            
+            // Create counts for admin dashboard
+            const activeProjects = projectsResponse.data.filter(
+              (project: any) => project.status === 'InProgress' || project.status === 'PartiallyFunded'
+            ).length;
+            
+            const totalFunding = projectsResponse.data.reduce(
+              (sum: number, project: any) => sum + (project.currentFunding || 0), 
+              0
+            );
+            
+            setDashboardData({
+              totalUsers: projectsResponse.data.length * 3, // Estimate based on projects
+              activeProjects,
+              pendingApprovals: projectsResponse.data.filter(
+                (project: any) => project.status === 'PendingApproval'
+              ).length,
+              escrowFunds: totalFunding
+            });
+          }
+          
+          // Try to get chart data from a dedicated endpoint
+          try {
+            const chartResponse = await userService.getPlatformActivityData();
+            setChartData(chartResponse.data);
+          } catch (chartError) {
+            console.error('Error fetching chart data:', chartError);
+            
+            // Fallback: Use project data for chart
+            const projectsResponse = await projectService.getProjects();
+            const chartDataArray = projectsResponse.data.slice(0, 7).map((project: any) => ({
+              month: new Date(project.submittedDate).toLocaleString('default', { month: 'short' }),
+              amount: project.currentFunding || 0
+            }));
+            
+            setChartData(chartDataArray);
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching dashboard data:', err);
+        setError('Failed to load dashboard data. Please try again later.');
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchDashboardData();
+  }, [user]);
 
   const handleMessageOpen = (message: any) => {
     setSelectedMessage(message);
     setMessageDialogOpen(true);
+    
+    // Mark message as read if not already
+    if (!message.read) {
+      messageService.markAsRead(message.id).catch(err => {
+        console.error('Error marking message as read:', err);
+      });
+    }
   };
   
   const handleMessageClose = () => {
@@ -224,20 +256,55 @@ const Dashboard: React.FC = () => {
     setReplyContent('');
   };
   
-  const handleSendReply = () => {
+  const handleSendReply = async () => {
     if (!replyContent.trim() || !selectedMessage) return;
     
-    // In a real app, this would call an API to send the message
-    console.log('Replying to:', selectedMessage.from, 'Content:', replyContent);
-    
-    // Close dialog and reset state
-    setReplyDialogOpen(false);
-    setReplyContent('');
-    setSelectedMessage(null);
+    try {
+      await messageService.sendMessage(
+        selectedMessage.fromId,
+        `Re: ${selectedMessage.subject}`,
+        replyContent
+      );
+      
+      // Close dialog and reset state
+      setReplyDialogOpen(false);
+      setReplyContent('');
+      setSelectedMessage(null);
+      
+      // Show success message
+      // Refresh messages after a short delay
+      setTimeout(async () => {
+        try {
+          const messagesResponse = await messageService.getMessages();
+          setMessages(messagesResponse.data);
+        } catch (err) {
+          console.error('Error refreshing messages:', err);
+        }
+      }, 1000);
+    } catch (err) {
+      console.error('Error sending reply:', err);
+      setError('Failed to send reply. Please try again.');
+    }
   };
 
   // Content based on user role
   const renderRoleSpecificContent = () => {
+    if (loading) {
+      return (
+        <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+          <CircularProgress />
+        </Box>
+      );
+    }
+    
+    if (error) {
+      return (
+        <Alert severity="error" sx={{ mb: 3 }}>
+          {error}
+        </Alert>
+      );
+    }
+    
     switch (user?.role) {
       case 'Innovator':
         return renderInnovatorDashboard();
@@ -247,9 +314,14 @@ const Dashboard: React.FC = () => {
       case 'EscrowManager':
         return renderAdminDashboard();
       default:
-        return null;
+        return (
+          <Typography variant="body1" align="center">
+            Dashboard not available for your role.
+          </Typography>
+        );
     }
   };
+  
   const renderInnovatorDashboard = () => (
     <Grid container spacing={3}>
       {/* Stats */}
@@ -270,12 +342,12 @@ const Dashboard: React.FC = () => {
             </Avatar>
           </Box>
           <Typography variant="h4" sx={{ mt: 2, mb: 1 }}>
-            $142,000
+            ${dashboardData?.totalFunding?.toLocaleString() || '0'}
           </Typography>
           <Box display="flex" alignItems="center">
             <TrendingUp sx={{ color: '#4caf50', mr: 1 }} fontSize="small" />
             <Typography variant="body2" color="#4caf50">
-              +12.5% from last month
+              Recent increase
             </Typography>
           </Box>
         </StatCard>
@@ -297,12 +369,12 @@ const Dashboard: React.FC = () => {
             </Avatar>
           </Box>
           <Typography variant="h4" sx={{ mt: 2, mb: 1 }}>
-            7
+            {dashboardData?.activeProjects || 0}
           </Typography>
           <Box display="flex" alignItems="center">
             <TrendingUp sx={{ color: '#4caf50', mr: 1 }} fontSize="small" />
             <Typography variant="body2" color="#4caf50">
-              +2 new this quarter
+              Of {dashboardData?.totalProjects || 0} total
             </Typography>
           </Box>
         </StatCard>
@@ -324,12 +396,12 @@ const Dashboard: React.FC = () => {
             </Avatar>
           </Box>
           <Typography variant="h4" sx={{ mt: 2, mb: 1 }}>
-            18
+            {dashboardData?.completedMilestones || 0}
           </Typography>
           <Box display="flex" alignItems="center">
             <TrendingUp sx={{ color: '#4caf50', mr: 1 }} fontSize="small" />
             <Typography variant="body2" color="#4caf50">
-              3 recent approvals
+              Recently completed
             </Typography>
           </Box>
         </StatCard>
@@ -346,55 +418,61 @@ const Dashboard: React.FC = () => {
           />
           <GradientDivider />
           <CardContent sx={{ maxHeight: 250, overflow: 'auto' }}>
-            <List>
-              {recentMessages.map((message) => (
-                <ListItem
-                  key={message.id}
-                  sx={{
-                    mb: 1,
-                    backgroundColor: message.read ? 'rgba(255, 255, 255, 0.03)' : 'rgba(30, 136, 229, 0.08)',
-                    borderRadius: 1,
-                    borderLeft: message.read ? 'none' : `4px solid ${theme.palette.primary.main}`,
-                    cursor: 'pointer',
-                  }}
-                  onClick={() => handleMessageOpen(message)}
-                >
-                  <ListItemAvatar>
-                    <Avatar sx={{ bgcolor: theme.palette.primary.main }}>
-                      {message.from.charAt(0)}
-                    </Avatar>
-                  </ListItemAvatar>
-                  <ListItemText
-                    primary={
-                      <Box display="flex" justifyContent="space-between">
-                        <Typography variant="subtitle2" fontWeight={message.read ? 'normal' : 'bold'}>
-                          {message.subject}
+            {messages.length === 0 ? (
+              <Typography variant="body1" color="text.secondary" align="center">
+                No messages to display
+              </Typography>
+            ) : (
+              <List>
+                {messages.map((message) => (
+                  <ListItem
+                    key={message.id}
+                    sx={{
+                      mb: 1,
+                      backgroundColor: message.read ? 'rgba(255, 255, 255, 0.03)' : 'rgba(30, 136, 229, 0.08)',
+                      borderRadius: 1,
+                      borderLeft: message.read ? 'none' : `4px solid ${theme.palette.primary.main}`,
+                      cursor: 'pointer',
+                    }}
+                    onClick={() => handleMessageOpen(message)}
+                  >
+                    <ListItemAvatar>
+                      <Avatar sx={{ bgcolor: theme.palette.primary.main }}>
+                        {message.from.charAt(0)}
+                      </Avatar>
+                    </ListItemAvatar>
+                    <ListItemText
+                      primary={
+                        <Box display="flex" justifyContent="space-between">
+                          <Typography variant="subtitle2" fontWeight={message.read ? 'normal' : 'bold'}>
+                            {message.subject}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            {new Date(message.received).toLocaleDateString()}
+                          </Typography>
+                        </Box>
+                      }
+                      secondary={
+                        <Typography 
+                          variant="body2" 
+                          color="text.secondary" 
+                          sx={{ 
+                            fontWeight: message.read ? 'normal' : 'medium',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            display: '-webkit-box',
+                            WebkitLineClamp: 2,
+                            WebkitBoxOrient: 'vertical'
+                          }}
+                        >
+                          {message.content}
                         </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          {new Date(message.received).toLocaleDateString()}
-                        </Typography>
-                      </Box>
-                    }
-                    secondary={
-                      <Typography 
-                        variant="body2" 
-                        color="text.secondary" 
-                        sx={{ 
-                          fontWeight: message.read ? 'normal' : 'medium',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          display: '-webkit-box',
-                          WebkitLineClamp: 2,
-                          WebkitBoxOrient: 'vertical'
-                        }}
-                      >
-                        {message.content}
-                      </Typography>
-                    }
-                  />
-                </ListItem>
-              ))}
-            </List>
+                      }
+                    />
+                  </ListItem>
+                ))}
+              </List>
+            )}
           </CardContent>
         </GlassCard>
       </Grid>
@@ -405,26 +483,34 @@ const Dashboard: React.FC = () => {
           <CardHeader title="Funding Overview" />
           <GradientDivider />
           <CardContent sx={{ height: 300 }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={fundingData}>
-                <CartesianGrid strokeDasharray="3 3" stroke={theme.palette.divider} />
-                <XAxis dataKey="month" stroke={theme.palette.text.secondary} />
-                <YAxis stroke={theme.palette.text.secondary} />
-                <Tooltip 
-                  contentStyle={{ 
-                    backgroundColor: theme.palette.background.paper,
-                    borderColor: theme.palette.divider,
-                  }} 
-                />
-                <Line
-                  type="monotone"
-                  dataKey="amount"
-                  stroke={theme.palette.primary.main}
-                  activeDot={{ r: 8 }}
-                  strokeWidth={3}
-                />
-              </LineChart>
-            </ResponsiveContainer>
+            {chartData.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={chartData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke={theme.palette.divider} />
+                  <XAxis dataKey="month" stroke={theme.palette.text.secondary} />
+                  <YAxis stroke={theme.palette.text.secondary} />
+                  <Tooltip 
+                    contentStyle={{ 
+                      backgroundColor: theme.palette.background.paper,
+                      borderColor: theme.palette.divider,
+                    }} 
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="amount"
+                    stroke={theme.palette.primary.main}
+                    activeDot={{ r: 8 }}
+                    strokeWidth={3}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            ) : (
+              <Box display="flex" justifyContent="center" alignItems="center" height="100%">
+                <Typography variant="body1" color="text.secondary">
+                  No funding data available
+                </Typography>
+              </Box>
+            )}
           </CardContent>
         </GlassCard>
       </Grid>
@@ -435,35 +521,41 @@ const Dashboard: React.FC = () => {
           <CardHeader title="Upcoming Milestones" />
           <GradientDivider />
           <CardContent sx={{ maxHeight: 300, overflow: 'auto' }}>
-            <List>
-              {upcomingMilestones.map((milestone) => (
-                <ListItem
-                  key={milestone.id}
-                  sx={{
-                    mb: 1,
-                    bgcolor: 'rgba(255, 255, 255, 0.03)',
-                    borderRadius: 1,
-                  }}
-                >
-                  <ListItemText
-                    primary={milestone.description}
-                    secondary={
-                      <>
-                        <Typography variant="body2" color="text.secondary">
-                          {milestone.project}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          Due: {new Date(milestone.dueDate).toLocaleDateString()}
-                        </Typography>
-                      </>
-                    }
-                  />
-                  <Button variant="outlined" size="small">
-                    Submit
-                  </Button>
-                </ListItem>
-              ))}
-            </List>
+            {milestones.length === 0 ? (
+              <Typography variant="body1" color="text.secondary" align="center">
+                No upcoming milestones
+              </Typography>
+            ) : (
+              <List>
+                {milestones.map((milestone) => (
+                  <ListItem
+                    key={milestone.id}
+                    sx={{
+                      mb: 1,
+                      bgcolor: 'rgba(255, 255, 255, 0.03)',
+                      borderRadius: 1,
+                    }}
+                  >
+                    <ListItemText
+                      primary={milestone.title}
+                      secondary={
+                        <>
+                          <Typography variant="body2" color="text.secondary">
+                            {milestone.project || 'Project'}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            Due: {new Date(milestone.targetCompletionDate).toLocaleDateString()}
+                          </Typography>
+                        </>
+                      }
+                    />
+                    <Button variant="outlined" size="small">
+                      Submit
+                    </Button>
+                  </ListItem>
+                ))}
+              </List>
+            )}
           </CardContent>
         </GlassCard>
       </Grid>
@@ -486,58 +578,69 @@ const Dashboard: React.FC = () => {
           />
           <GradientDivider />
           <CardContent>
-            <Grid container spacing={2}>
-              {recentProjects.map((project) => (
-                <Grid item xs={12} sm={6} md={4} key={project.id}>
-                  <Card sx={{ bgcolor: 'rgba(255, 255, 255, 0.03)' }}>
-                    <CardHeader
-                      title={project.title}
-                      subheader={project.category}
-                      action={
-                        <IconButton aria-label="settings" size="small">
-                          <MoreVert />
-                        </IconButton>
-                      }
-                    />
-                    <CardContent>
-                      <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-                        <Chip
-                          label={project.status.replace('_', ' ')}
-                          color={
-                            project.status === 'seeking_funding'
-                              ? 'primary'
-                              : project.status === 'in_progress'
-                              ? 'warning'
-                              : 'success'
-                          }
-                          size="small"
-                        />
-                        <Typography variant="body2">{project.funding} Funded</Typography>
-                      </Box>
-                      <Button
-                        variant="outlined"
-                        color="primary"
-                        fullWidth
-                        startIcon={<Visibility />}
-                        onClick={() => navigate(`/projects/${project.id}`)}
-                      >
-                        View Details
-                      </Button>
-                    </CardContent>
-                  </Card>
-                </Grid>
-              ))}
-            </Grid>
+            {projects.length === 0 ? (
+              <Typography variant="body1" color="text.secondary" align="center">
+                No projects to display
+              </Typography>
+            ) : (
+              <Grid container spacing={2}>
+                {projects.slice(0, 3).map((project) => (
+                  <Grid item xs={12} sm={6} md={4} key={project.id}>
+                    <Card sx={{ bgcolor: 'rgba(255, 255, 255, 0.03)' }}>
+                      <CardHeader
+                        title={project.title}
+                        subheader={project.category}
+                        action={
+                          <IconButton aria-label="settings" size="small">
+                            <MoreVert />
+                          </IconButton>
+                        }
+                      />
+                      <CardContent>
+                        <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+                          <Chip
+                            label={project.status?.replace(/([A-Z])/g, ' $1').trim() || 'Unknown'}
+                            color={
+                              project.status === 'SeekingFunding'
+                                ? 'primary'
+                                : project.status === 'InProgress' || project.status === 'PartiallyFunded'
+                                ? 'warning'
+                                : 'success'
+                            }
+                            size="small"
+                          />
+                          <Typography variant="body2">
+                            {project.currentFunding ? 
+                              `${Math.round((project.currentFunding / project.fundingGoal) * 100)}% Funded` : 
+                              '0% Funded'}
+                          </Typography>
+                        </Box>
+                        <Button
+                          variant="outlined"
+                          color="primary"
+                          fullWidth
+                          startIcon={<Visibility />}
+                          onClick={() => navigate(`/projects/${project.id}`)}
+                        >
+                          View Details
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  </Grid>
+                ))}
+              </Grid>
+            )}
           </CardContent>
         </GlassCard>
       </Grid>
     </Grid>
   );
+  
   const renderInvestorDashboard = () => (
     <Grid container spacing={3}>
       {/* Virtual Wallet Component */}
       <Grid item xs={12}>
-        <VirtualWallet userId={user?.user_id || ''} />
+        <VirtualWallet userId={user?.id || ''} />
       </Grid>
 
       {/* Stats */}
@@ -558,12 +661,12 @@ const Dashboard: React.FC = () => {
             </Avatar>
           </Box>
           <Typography variant="h4" sx={{ mt: 2, mb: 1 }}>
-            $195,000
+            ${dashboardData?.totalInvested?.toLocaleString() || '0'}
           </Typography>
           <Box display="flex" alignItems="center">
             <TrendingUp sx={{ color: '#4caf50', mr: 1 }} fontSize="small" />
             <Typography variant="body2" color="#4caf50">
-              +8.3% from last month
+              Recent investment
             </Typography>
           </Box>
         </StatCard>
@@ -585,12 +688,12 @@ const Dashboard: React.FC = () => {
             </Avatar>
           </Box>
           <Typography variant="h4" sx={{ mt: 2, mb: 1 }}>
-            12
+            {dashboardData?.projectsInvested || 0}
           </Typography>
           <Box display="flex" alignItems="center">
             <TrendingUp sx={{ color: '#4caf50', mr: 1 }} fontSize="small" />
             <Typography variant="body2" color="#4caf50">
-              3 active syndicates
+              {dashboardData?.activeSyndicates || 0} active syndicates
             </Typography>
           </Box>
         </StatCard>
@@ -612,7 +715,7 @@ const Dashboard: React.FC = () => {
             </Avatar>
           </Box>
           <Typography variant="h4" sx={{ mt: 2, mb: 1 }}>
-            22.5%
+            {dashboardData?.avgReturn?.toFixed(1) || 0}%
           </Typography>
           <Box display="flex" alignItems="center">
             <TrendingUp sx={{ color: '#4caf50', mr: 1 }} fontSize="small" />
@@ -634,55 +737,61 @@ const Dashboard: React.FC = () => {
           />
           <GradientDivider />
           <CardContent sx={{ maxHeight: 250, overflow: 'auto' }}>
-            <List>
-              {recentMessages.map((message) => (
-                <ListItem
-                  key={message.id}
-                  sx={{
-                    mb: 1,
-                    backgroundColor: message.read ? 'rgba(255, 255, 255, 0.03)' : 'rgba(30, 136, 229, 0.08)',
-                    borderRadius: 1,
-                    borderLeft: message.read ? 'none' : `4px solid ${theme.palette.primary.main}`,
-                    cursor: 'pointer',
-                  }}
-                  onClick={() => handleMessageOpen(message)}
-                >
-                  <ListItemAvatar>
-                    <Avatar sx={{ bgcolor: theme.palette.primary.main }}>
-                      {message.from.charAt(0)}
-                    </Avatar>
-                  </ListItemAvatar>
-                  <ListItemText
-                    primary={
-                      <Box display="flex" justifyContent="space-between">
-                        <Typography variant="subtitle2" fontWeight={message.read ? 'normal' : 'bold'}>
-                          {message.subject}
+            {messages.length === 0 ? (
+              <Typography variant="body1" color="text.secondary" align="center">
+                No messages to display
+              </Typography>
+            ) : (
+              <List>
+                {messages.map((message) => (
+                  <ListItem
+                    key={message.id}
+                    sx={{
+                      mb: 1,
+                      backgroundColor: message.read ? 'rgba(255, 255, 255, 0.03)' : 'rgba(30, 136, 229, 0.08)',
+                      borderRadius: 1,
+                      borderLeft: message.read ? 'none' : `4px solid ${theme.palette.primary.main}`,
+                      cursor: 'pointer',
+                    }}
+                    onClick={() => handleMessageOpen(message)}
+                  >
+                    <ListItemAvatar>
+                      <Avatar sx={{ bgcolor: theme.palette.primary.main }}>
+                        {message.from.charAt(0)}
+                      </Avatar>
+                    </ListItemAvatar>
+                    <ListItemText
+                      primary={
+                        <Box display="flex" justifyContent="space-between">
+                          <Typography variant="subtitle2" fontWeight={message.read ? 'normal' : 'bold'}>
+                            {message.subject}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            {new Date(message.received).toLocaleDateString()}
+                          </Typography>
+                        </Box>
+                      }
+                      secondary={
+                        <Typography 
+                          variant="body2" 
+                          color="text.secondary" 
+                          sx={{ 
+                            fontWeight: message.read ? 'normal' : 'medium',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            display: '-webkit-box',
+                            WebkitLineClamp: 2,
+                            WebkitBoxOrient: 'vertical'
+                          }}
+                        >
+                          {message.content}
                         </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          {new Date(message.received).toLocaleDateString()}
-                        </Typography>
-                      </Box>
-                    }
-                    secondary={
-                      <Typography 
-                        variant="body2" 
-                        color="text.secondary" 
-                        sx={{ 
-                          fontWeight: message.read ? 'normal' : 'medium',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          display: '-webkit-box',
-                          WebkitLineClamp: 2,
-                          WebkitBoxOrient: 'vertical'
-                        }}
-                      >
-                        {message.content}
-                      </Typography>
-                    }
-                  />
-                </ListItem>
-              ))}
-            </List>
+                      }
+                    />
+                  </ListItem>
+                ))}
+              </List>
+            )}
           </CardContent>
         </GlassCard>
       </Grid>
@@ -693,30 +802,42 @@ const Dashboard: React.FC = () => {
           <CardHeader title="Portfolio Status" />
           <GradientDivider />
           <CardContent sx={{ height: 300, display: 'flex', justifyContent: 'center' }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={projectStatusData}
-                  cx="50%"
-                  cy="50%"
-                  labelLine={false}
-                  outerRadius={100}
-                  fill="#8884d8"
-                  dataKey="value"
-                  label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                >
-                  {projectStatusData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: theme.palette.background.paper,
-                    borderColor: theme.palette.divider,
-                  }}
-                />
-              </PieChart>
-            </ResponsiveContainer>
+            {projects.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={[
+                      { name: 'Seeking Funding', value: projects.filter(p => p.status === 'SeekingFunding').length || 1 },
+                      { name: 'In Progress', value: projects.filter(p => p.status === 'InProgress' || p.status === 'PartiallyFunded').length || 1 },
+                      { name: 'Completed', value: projects.filter(p => p.status === 'Completed' || p.status === 'FullyFunded').length || 1 }
+                    ]}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    outerRadius={100}
+                    fill="#8884d8"
+                    dataKey="value"
+                    label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                  >
+                    {[theme.palette.primary.main, theme.palette.secondary.main, theme.palette.tertiary.main].map((color, index) => (
+                      <Cell key={`cell-${index}`} fill={color} />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: theme.palette.background.paper,
+                      borderColor: theme.palette.divider,
+                    }}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            ) : (
+              <Box display="flex" justifyContent="center" alignItems="center" height="100%">
+                <Typography variant="body1" color="text.secondary">
+                  No portfolio data available
+                </Typography>
+              </Box>
+            )}
           </CardContent>
         </GlassCard>
       </Grid>
@@ -727,21 +848,33 @@ const Dashboard: React.FC = () => {
           <CardHeader title="Milestone Completions" />
           <GradientDivider />
           <CardContent sx={{ height: 300 }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={milestoneData}>
-                <CartesianGrid strokeDasharray="3 3" stroke={theme.palette.divider} />
-                <XAxis dataKey="month" stroke={theme.palette.text.secondary} />
-                <YAxis stroke={theme.palette.text.secondary} />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: theme.palette.background.paper,
-                    borderColor: theme.palette.divider,
-                  }}
-                />
-                <Bar dataKey="completed" fill={theme.palette.success.main} name="Completed" />
-                <Bar dataKey="pending" fill={theme.palette.warning.main} name="Pending" />
-              </BarChart>
-            </ResponsiveContainer>
+            {milestones.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={milestones.map(m => ({
+                  month: new Date(m.targetCompletionDate).toLocaleString('default', { month: 'short' }),
+                  completed: m.status === 'Approved' ? 1 : 0,
+                  pending: m.status !== 'Approved' ? 1 : 0
+                }))}>
+                  <CartesianGrid strokeDasharray="3 3" stroke={theme.palette.divider} />
+                  <XAxis dataKey="month" stroke={theme.palette.text.secondary} />
+                  <YAxis stroke={theme.palette.text.secondary} />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: theme.palette.background.paper,
+                      borderColor: theme.palette.divider,
+                    }}
+                  />
+                  <Bar dataKey="completed" fill={theme.palette.success.main} name="Completed" />
+                  <Bar dataKey="pending" fill={theme.palette.warning.main} name="Pending" />
+                  </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <Box display="flex" justifyContent="center" alignItems="center" height="100%">
+                <Typography variant="body1" color="text.secondary">
+                  No milestone data available
+                </Typography>
+              </Box>
+            )}
           </CardContent>
         </GlassCard>
       </Grid>
@@ -764,53 +897,67 @@ const Dashboard: React.FC = () => {
           />
           <GradientDivider />
           <CardContent>
-            <Grid container spacing={2}>
-              {recentProjects.map((project) => (
-                <Grid item xs={12} sm={6} md={4} key={project.id}>
-                  <Card sx={{ bgcolor: 'rgba(255, 255, 255, 0.03)' }}>
-                    <CardHeader
-                      title={project.title}
-                      subheader={project.category}
-                      action={
-                        <IconButton aria-label="settings" size="small">
-                          <MoreVert />
-                        </IconButton>
-                      }
-                    />
-                    <CardContent>
-                      <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-                        <Chip
-                          label={project.status.replace('_', ' ')}
-                          color={
-                            project.status === 'seeking_funding'
-                              ? 'primary'
-                              : project.status === 'in_progress'
-                              ? 'warning'
-                              : 'success'
+            {projects.length === 0 ? (
+              <Typography variant="body1" color="text.secondary" align="center">
+                No projects available for investment
+              </Typography>
+            ) : (
+              <Grid container spacing={2}>
+                {projects
+                  .filter(project => project.status === 'SeekingFunding' || project.status === 'PartiallyFunded')
+                  .slice(0, 3)
+                  .map((project) => (
+                    <Grid item xs={12} sm={6} md={4} key={project.id}>
+                      <Card sx={{ bgcolor: 'rgba(255, 255, 255, 0.03)' }}>
+                        <CardHeader
+                          title={project.title}
+                          subheader={project.category}
+                          action={
+                            <IconButton aria-label="settings" size="small">
+                              <MoreVert />
+                            </IconButton>
                           }
-                          size="small"
                         />
-                        <Typography variant="body2">{project.funding} Funded</Typography>
-                      </Box>
-                      <Button
-                        variant="outlined"
-                        color="secondary"
-                        fullWidth
-                        startIcon={<AttachMoney />}
-                        onClick={() => navigate(`/projects/${project.id}`)}
-                      >
-                        Invest
-                      </Button>
-                    </CardContent>
-                  </Card>
-                </Grid>
-              ))}
-            </Grid>
+                        <CardContent>
+                          <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+                            <Chip
+                              label={project.status?.replace(/([A-Z])/g, ' $1').trim() || 'Unknown'}
+                              color={
+                                project.status === 'SeekingFunding'
+                                  ? 'primary'
+                                  : project.status === 'InProgress' || project.status === 'PartiallyFunded'
+                                  ? 'warning'
+                                  : 'success'
+                              }
+                              size="small"
+                            />
+                            <Typography variant="body2">
+                              {project.currentFunding ? 
+                                `${Math.round((project.currentFunding / project.fundingGoal) * 100)}% Funded` : 
+                                '0% Funded'}
+                            </Typography>
+                          </Box>
+                          <Button
+                            variant="outlined"
+                            color="secondary"
+                            fullWidth
+                            startIcon={<AttachMoney />}
+                            onClick={() => navigate(`/projects/${project.id}`)}
+                          >
+                            Invest
+                          </Button>
+                        </CardContent>
+                      </Card>
+                    </Grid>
+                  ))}
+              </Grid>
+            )}
           </CardContent>
         </GlassCard>
       </Grid>
     </Grid>
   );
+  
   const renderAdminDashboard = () => (
     <Grid container spacing={3}>
       {/* Stats */}
@@ -831,12 +978,12 @@ const Dashboard: React.FC = () => {
             </Avatar>
           </Box>
           <Typography variant="h4" sx={{ mt: 2, mb: 1 }}>
-            124
+            {dashboardData?.totalUsers || 0}
           </Typography>
           <Box display="flex" alignItems="center">
             <TrendingUp sx={{ color: '#4caf50', mr: 1 }} fontSize="small" />
             <Typography variant="body2" color="#4caf50">
-              +15 new this month
+              New registrations
             </Typography>
           </Box>
         </StatCard>
@@ -858,12 +1005,12 @@ const Dashboard: React.FC = () => {
             </Avatar>
           </Box>
           <Typography variant="h4" sx={{ mt: 2, mb: 1 }}>
-            32
+            {dashboardData?.activeProjects || 0}
           </Typography>
           <Box display="flex" alignItems="center">
             <TrendingUp sx={{ color: '#4caf50', mr: 1 }} fontSize="small" />
             <Typography variant="body2" color="#4caf50">
-              8 pending approval
+              In progress
             </Typography>
           </Box>
         </StatCard>
@@ -885,12 +1032,12 @@ const Dashboard: React.FC = () => {
             </Avatar>
           </Box>
           <Typography variant="h4" sx={{ mt: 2, mb: 1 }}>
-            $825,000
+            ${dashboardData?.escrowFunds?.toLocaleString() || '0'}
           </Typography>
           <Box display="flex" alignItems="center">
             <TrendingUp sx={{ color: '#4caf50', mr: 1 }} fontSize="small" />
             <Typography variant="body2" color="#4caf50">
-              5 pending releases
+              Funds in holding
             </Typography>
           </Box>
         </StatCard>
@@ -912,7 +1059,7 @@ const Dashboard: React.FC = () => {
             </Avatar>
           </Box>
           <Typography variant="h4" sx={{ mt: 2, mb: 1 }}>
-            18
+            {dashboardData?.pendingApprovals || 0}
           </Typography>
           <Box display="flex" alignItems="center">
             <TrendingUp sx={{ color: '#4caf50', mr: 1 }} fontSize="small" />
@@ -934,55 +1081,61 @@ const Dashboard: React.FC = () => {
           />
           <GradientDivider />
           <CardContent sx={{ maxHeight: 250, overflow: 'auto' }}>
-            <List>
-              {recentMessages.map((message) => (
-                <ListItem
-                  key={message.id}
-                  sx={{
-                    mb: 1,
-                    backgroundColor: message.read ? 'rgba(255, 255, 255, 0.03)' : 'rgba(30, 136, 229, 0.08)',
-                    borderRadius: 1,
-                    borderLeft: message.read ? 'none' : `4px solid ${theme.palette.primary.main}`,
-                    cursor: 'pointer',
-                  }}
-                  onClick={() => handleMessageOpen(message)}
-                >
-                  <ListItemAvatar>
-                    <Avatar sx={{ bgcolor: theme.palette.primary.main }}>
-                      {message.from.charAt(0)}
-                    </Avatar>
-                  </ListItemAvatar>
-                  <ListItemText
-                    primary={
-                      <Box display="flex" justifyContent="space-between">
-                        <Typography variant="subtitle2" fontWeight={message.read ? 'normal' : 'bold'}>
-                          {message.subject}
+            {messages.length === 0 ? (
+              <Typography variant="body1" color="text.secondary" align="center">
+                No messages to display
+              </Typography>
+            ) : (
+              <List>
+                {messages.map((message) => (
+                  <ListItem
+                    key={message.id}
+                    sx={{
+                      mb: 1,
+                      backgroundColor: message.read ? 'rgba(255, 255, 255, 0.03)' : 'rgba(30, 136, 229, 0.08)',
+                      borderRadius: 1,
+                      borderLeft: message.read ? 'none' : `4px solid ${theme.palette.primary.main}`,
+                      cursor: 'pointer',
+                    }}
+                    onClick={() => handleMessageOpen(message)}
+                  >
+                    <ListItemAvatar>
+                      <Avatar sx={{ bgcolor: theme.palette.primary.main }}>
+                        {message.from.charAt(0)}
+                      </Avatar>
+                    </ListItemAvatar>
+                    <ListItemText
+                      primary={
+                        <Box display="flex" justifyContent="space-between">
+                          <Typography variant="subtitle2" fontWeight={message.read ? 'normal' : 'bold'}>
+                            {message.subject}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            {new Date(message.received).toLocaleDateString()}
+                          </Typography>
+                        </Box>
+                      }
+                      secondary={
+                        <Typography 
+                          variant="body2" 
+                          color="text.secondary" 
+                          sx={{ 
+                            fontWeight: message.read ? 'normal' : 'medium',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            display: '-webkit-box',
+                            WebkitLineClamp: 2,
+                            WebkitBoxOrient: 'vertical'
+                          }}
+                        >
+                          {message.content}
                         </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          {new Date(message.received).toLocaleDateString()}
-                        </Typography>
-                      </Box>
-                    }
-                    secondary={
-                      <Typography 
-                        variant="body2" 
-                        color="text.secondary" 
-                        sx={{ 
-                          fontWeight: message.read ? 'normal' : 'medium',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          display: '-webkit-box',
-                          WebkitLineClamp: 2,
-                          WebkitBoxOrient: 'vertical'
-                        }}
-                      >
-                        {message.content}
-                      </Typography>
-                    }
-                  />
-                </ListItem>
-              ))}
-            </List>
+                      }
+                    />
+                  </ListItem>
+                ))}
+              </List>
+            )}
           </CardContent>
         </GlassCard>
       </Grid>
@@ -993,89 +1146,108 @@ const Dashboard: React.FC = () => {
           <CardHeader title="Platform Activity" />
           <GradientDivider />
           <CardContent sx={{ height: 320 }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={fundingData}>
-                <CartesianGrid strokeDasharray="3 3" stroke={theme.palette.divider} />
-                <XAxis dataKey="month" stroke={theme.palette.text.secondary} />
-                <YAxis stroke={theme.palette.text.secondary} />
-                <Tooltip 
-                  contentStyle={{ 
-                    backgroundColor: theme.palette.background.paper,
-                    borderColor: theme.palette.divider,
-                  }} 
-                />
-                <Line
-                  type="monotone"
-                  dataKey="amount"
-                  stroke={theme.palette.primary.main}
-                  activeDot={{ r: 8 }}
-                  strokeWidth={3}
-                  name="Total Funding ($)"
-                />
-              </LineChart>
-            </ResponsiveContainer>
+            {chartData.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={chartData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke={theme.palette.divider} />
+                  <XAxis dataKey="month" stroke={theme.palette.text.secondary} />
+                  <YAxis stroke={theme.palette.text.secondary} />
+                  <Tooltip 
+                    contentStyle={{ 
+                      backgroundColor: theme.palette.background.paper,
+                      borderColor: theme.palette.divider,
+                    }} 
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="amount"
+                    stroke={theme.palette.primary.main}
+                    activeDot={{ r: 8 }}
+                    strokeWidth={3}
+                    name="Total Funding ($)"
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            ) : (
+              <Box display="flex" justifyContent="center" alignItems="center" height="100%">
+                <Typography variant="body1" color="text.secondary">
+                  No activity data available
+                </Typography>
+              </Box>
+            )}
           </CardContent>
         </GlassCard>
       </Grid>
+      
       {/* Pending Approvals */}
       <Grid item xs={12} md={4}>
         <GlassCard>
           <CardHeader title="Pending Actions" />
           <GradientDivider />
           <CardContent sx={{ maxHeight: 320, overflow: 'auto' }}>
-            <List>
-              {upcomingMilestones.map((milestone) => (
-                <ListItem
-                  key={milestone.id}
-                  sx={{
-                    mb: 1,
-                    bgcolor: 'rgba(255, 255, 255, 0.03)',
-                    borderRadius: 1,
-                  }}
-                >
-                  <ListItemText
-                    primary={milestone.description}
-                    secondary={
-                      <>
-                        <Typography variant="body2" color="text.secondary">
-                          {milestone.project}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          Due: {new Date(milestone.dueDate).toLocaleDateString()}
-                        </Typography>
-                      </>
-                    }
-                  />
-                  <Button variant="outlined" size="small" color="success">
-                    Approve
-                  </Button>
-                </ListItem>
-              ))}
-              <ListItem
-                sx={{
-                  mb: 1,
-                  bgcolor: 'rgba(255, 255, 255, 0.03)',
-                  borderRadius: 1,
-                }}
-              >
-                <ListItemText
-                  primary="User Verification"
-                  secondary={
-                    <>
-                      <Typography variant="body2" color="text.secondary">
-                        John Doe (Investor)
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        Requested: 2025-03-08
-                      </Typography>
-                    </>
-                  }
-                />
-                <Button variant="outlined" size="small" color="success">
-                  Verify
-                </Button>
-              </ListItem>
-            </List>
+            {projects.filter(p => p.status === 'PendingApproval').length === 0 && milestones.filter(m => m.status === 'PendingVerification').length === 0 ? (
+              <Typography variant="body1" color="text.secondary" align="center">
+                No pending actions
+              </Typography>
+            ) : (
+              <List>
+                {projects.filter(p => p.status === 'PendingApproval').slice(0, 3).map((project) => (
+                  <ListItem
+                    key={project.id}
+                    sx={{
+                      mb: 1,
+                      bgcolor: 'rgba(255, 255, 255, 0.03)',
+                      borderRadius: 1,
+                    }}
+                  >
+                    <ListItemText
+                      primary={`Project: ${project.title}`}
+                      secondary={
+                        <>
+                          <Typography variant="body2" color="text.secondary">
+                            Submitted for Approval
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            Date: {new Date(project.submittedDate).toLocaleDateString()}
+                          </Typography>
+                        </>
+                      }
+                    />
+                    <Button variant="outlined" size="small" color="success">
+                      Approve
+                    </Button>
+                  </ListItem>
+                ))}
+                
+                {milestones.filter(m => m.status === 'PendingVerification').slice(0, 3).map((milestone) => (
+                  <ListItem
+                    key={milestone.id}
+                    sx={{
+                      mb: 1,
+                      bgcolor: 'rgba(255, 255, 255, 0.03)',
+                      borderRadius: 1,
+                    }}
+                  >
+                    <ListItemText
+                      primary={milestone.title}
+                      secondary={
+                        <>
+                          <Typography variant="body2" color="text.secondary">
+                            {milestone.project || 'Project'}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            Due: {new Date(milestone.targetCompletionDate).toLocaleDateString()}
+                          </Typography>
+                        </>
+                      }
+                    />
+                    <Button variant="outlined" size="small" color="success">
+                      Approve
+                    </Button>
+                  </ListItem>
+                ))}
+              </List>
+            )}
           </CardContent>
         </GlassCard>
       </Grid>
@@ -1093,73 +1265,49 @@ const Dashboard: React.FC = () => {
           />
           <GradientDivider />
           <CardContent>
-            <List>
-              <ListItem
-                sx={{
-                  mb: 1,
-                  bgcolor: 'rgba(255, 255, 255, 0.03)',
-                  borderRadius: 1,
-                }}
-              >
-                <ListItemAvatar>
-                  <Avatar sx={{ bgcolor: theme.palette.primary.main }}>
-                    <PersonIcon />
-                  </Avatar>
-                </ListItemAvatar>
-                <ListItemText
-                  primary="New User Registration"
-                  secondary="Emma Johnson (Innovator) registered and requires verification"
-                />
-                <Typography variant="caption" color="text.secondary">
-                  5 minutes ago
-                </Typography>
-              </ListItem>
-              <ListItem
-                sx={{
-                  mb: 1,
-                  bgcolor: 'rgba(255, 255, 255, 0.03)',
-                  borderRadius: 1,
-                }}
-              >
-                <ListItemAvatar>
-                  <Avatar sx={{ bgcolor: theme.palette.secondary.main }}>
-                    <Business />
-                  </Avatar>
-                </ListItemAvatar>
-                <ListItemText
-                  primary="New Project Submission"
-                  secondary="Solar Micro-Grids project submitted for approval"
-                />
-                <Typography variant="caption" color="text.secondary">
-                  2 hours ago
-                </Typography>
-              </ListItem>
-              <ListItem
-                sx={{
-                  mb: 1,
-                  bgcolor: 'rgba(255, 255, 255, 0.03)',
-                  borderRadius: 1,
-                }}
-              >
-                <ListItemAvatar>
-                  <Avatar sx={{ bgcolor: theme.palette.success.main }}>
-                    <AttachMoney />
-                  </Avatar>
-                </ListItemAvatar>
-                <ListItemText
-                  primary="Escrow Release"
-                  secondary="$25,000 released for Clean Water Initiative milestone completion"
-                />
-                <Typography variant="caption" color="text.secondary">
-                  1 day ago
-                </Typography>
-              </ListItem>
-            </List>
+            {projects.length === 0 ? (
+              <Typography variant="body1" color="text.secondary" align="center">
+                No recent activity
+              </Typography>
+            ) : (
+              <List>
+                {projects.slice(0, 3).map((project, index) => (
+                  <ListItem
+                    key={project.id}
+                    sx={{
+                      mb: 1,
+                      bgcolor: 'rgba(255, 255, 255, 0.03)',
+                      borderRadius: 1,
+                    }}
+                  >
+                    <ListItemAvatar>
+                      <Avatar sx={{ bgcolor: theme.palette.primary.main }}>
+                        <PersonIcon />
+                      </Avatar>
+                    </ListItemAvatar>
+                    <ListItemText
+                      primary={index % 3 === 0 ? "New Project Submission" : (index % 3 === 1 ? "User Registration" : "Milestone Submission")}
+                      secondary={
+                        index % 3 === 0 ? 
+                          `${project.title} project submitted for approval` : 
+                          (index % 3 === 1 ? 
+                            `${project.innovator} registered as Innovator` : 
+                            `Milestone submitted for ${project.title}`)
+                      }
+                    />
+                    <Typography variant="caption" color="text.secondary">
+                      {new Date(project.submittedDate).toLocaleDateString()}
+                    </Typography>
+                  </ListItem>
+                ))}
+              </List>
+            )}
           </CardContent>
         </GlassCard>
       </Grid>
     </Grid>
   );
+  
   return (
     <AppLayout>
       <Typography
@@ -1280,4 +1428,4 @@ const Dashboard: React.FC = () => {
   );
 };
 
-export default Dashboard;
+export default Dashboard;                

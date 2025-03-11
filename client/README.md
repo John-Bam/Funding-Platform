@@ -68,7 +68,7 @@ A platform for connecting innovators with investors, managing project milestones
 
 ## Project Structure
 
-```
+
 innocap-forge/
 ├── client/                  # React frontend
 │   ├── public/              # Static files

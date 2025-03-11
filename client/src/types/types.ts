@@ -1,147 +1,147 @@
-// client/src/types.ts - Add this file to your project
+// client/src/types/types.ts
 
-// User interface
 export interface User {
-    id: string;
-    name: string;
-    email: string;
-    role: 'Admin' | 'Innovator' | 'Investor' | 'EscrowManager';
-    status?: 'PendingApproval' | 'Verified' | 'Rejected' | 'Suspended';
-    registeredDate: string;
-    documents?: string[];
-    phone_number?: string;
-    address?: string;
-    date_of_birth?: string;
-  }
+  id?: string;
+  user_id?: string;
+  email: string;
+  full_name: string;
+  phone_number?: string;
+  date_of_birth?: string;
+  address?: string;
+  role: string;
+  status: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface Project {
+  id: string;
+  title: string;
+  description: string;
+  fullDescription?: string;
+  impactStatement?: string;
+  category: string;
+  status: string;
+  fundingGoal: number;
+  currentFunding?: number;
+  geoFocus?: string;
+  sdgAlignment?: string[];
+  durationMonths?: number;
+  submittedDate: string;
+  innovatorId?: string;
+  innovator?: string;
+  investorsCount?: number;
+  minimumInvestment?: number;
+  documents?: string[];
+  teamMembers?: TeamMember[];
+  updates?: ProjectUpdate[];
+}
+
+export interface TeamMember {
+  name: string;
+  role: string;
+  bio?: string;
+}
+
+export interface ProjectUpdate {
+  title: string;
+  content: string;
+  date: string;
+}
+
+export interface Milestone {
+  id: string;
+  title: string;
+  description: string;
+  startDate?: string;
+  targetCompletionDate: string;
+  status: string;
+  fundingRequired: number;
+  projectId: string;
+  project?: string;
+}
+
+export interface Investment {
+  id: string;
+  amount: number;
+  investmentDate: string;
+  projectId: string;
+  project?: string;
+  projectStatus?: string;
+  projectFundingGoal?: number;
+  projectCurrentFunding?: number;
+  projectCategory?: string;
+}
+
+export interface Wallet {
+  walletId: string;
+  balance: number;
+}
+
+export interface Transaction {
+  id: string;
+  type: string;
+  status: string;
+  amount: number;
+  notes?: string;
+  date: string;
+  paymentMethod?: string;
+  proofOfPayment?: string;
+  projectId?: string;
+  project?: string;
+}
+
+export interface Message {
+  id: string;
+  from: string;
+  fromId: string;
+  subject: string;
+  content: string;
+  received: string;
+  read: boolean;
+  priority?: string;
+}
+
+export interface Notification {
+  id: string;
+  message: string;
+  read: boolean;
+  timestamp: string;
+  type?: string;
+}
+
+export interface ApiResponse<T> {
+  success: boolean;
+  data: T;
+  message?: string;
+  error?: string;
+}
+
+export interface InvestorProfile {
+  investor_id: string;
+  preferred_sdg?: string[];
+  preferred_geo?: string[];
+  investment_min?: number;
+  investment_max?: number;
+  investments: number;
+  totalInvested: number;
+  activeSyndicates: number;
+}
+
+export interface DashboardStats {
+  // Innovator stats
+  totalFunding?: number;
+  activeProjects?: number;
+  totalProjects?: number;
+  completedMilestones?: number;
   
-  // Project interface
-  export interface Project {
-    id: string;
-    title: string;
-    innovator: string;
-    innovatorId?: string;
-    submittedDate: string;
-    category: string;
-    fundingGoal: number;
-    currentFunding?: number;
-    status?: 'PendingApproval' | 'SeekingFunding' | 'PartiallyFunded' | 'FullyFunded' | 'InProgress' | 'Completed' | 'Rejected';
-    description?: string;
-    sdgAlignment?: string[];
-    geoFocus?: string;
-  }
+  // Investor stats
+  totalInvested?: number;
+  projectsInvested?: number;
+  avgReturn?: number;
   
-  // Milestone interface
-  export interface Milestone {
-    id: string;
-    project: string;
-    projectId?: string;
-    innovator: string;
-    description: string;
-    submittedDate: string;
-    fundingRequired: number;
-    status?: 'Planned' | 'InProgress' | 'PendingVerification' | 'Approved' | 'Rejected';
-    targetCompletionDate?: string;
-    startDate?: string;
-    title?: string;
-  }
-  
-  // Escrow transaction interface
-  export interface EscrowTransaction {
-    id: string;
-    project: string;
-    projectId?: string;
-    milestone: string;
-    milestoneId?: string;
-    amount: number;
-    requestDate: string;
-    status?: 'Locked' | 'Released' | 'Refunded';
-    releasedAt?: string;
-    releasedBy?: string;
-  }
-  
-  // Transaction interface
-  export interface Transaction {
-    id: string;
-    userId: string;
-    userName: string;
-    type: 'deposit' | 'withdrawal' | 'investment' | 'escrow_release' | 'refund';
-    amount: number;
-    date: string;
-    status: 'pending' | 'verifying' | 'completed' | 'rejected';
-    paymentMethod?: 'bank_transfer' | 'cryptocurrency' | 'credit_card';
-    proofOfPayment?: string;
-    project?: string;
-    projectId?: string;
-    notes?: string;
-    riskLevel?: 'low' | 'medium' | 'high';
-    walletId?: string;
-  }
-  
-  // Message interface
-  export interface Message {
-    id: string;
-    from: string;
-    fromId: string;
-    subject: string;
-    content: string;
-    received: string;
-    priority: 'low' | 'medium' | 'high';
-    replied?: boolean;
-  }
-  
-  // System health interface
-  export interface SystemHealth {
-    status: 'healthy' | 'warning' | 'error';
-    uptime: string;
-    databaseConnections: number;
-    activeUsers: number;
-    cpuUsage: number;
-    memoryUsage: number;
-    lastBackup: string;
-  }
-  
-  // User activity interface
-  export interface UserActivity {
-    id: string;
-    action: string;
-    timestamp: string;
-    details?: string;
-  }
-  
-  // Dashboard stats interface
-  export interface DashboardStats {
-    totalUsers: number;
-    activeProjects: number;
-    pendingApprovals: number;
-    escrowFunds: number;
-    recentActivity: RecentActivity[];
-  }
-  
-  // Recent activity interface
-  export interface RecentActivity {
-    id: string;
-    type: string;
-    timestamp: string;
-    user?: string;
-    project?: string;
-    amount?: number;
-    milestone?: string;
-    investor?: string;
-  }
-  
-  // API response interface
-  export interface ApiResponse<T> {
-    success: boolean;
-    data?: T;
-    error?: string;
-    message?: string;
-  }
-  
-  // Auth context interface
-  export interface AuthContextType {
-    user: User | null;
-    isAuthenticated: boolean;
-    login: (email: string, password: string) => Promise<boolean>;
-    logout: () => Promise<void>;
-    loading: boolean;
-  }
+  // Admin stats
+  totalUsers?: number;
+  pendingApprovals?: number;
+  escrowFunds?: number;
+}

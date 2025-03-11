@@ -1,5 +1,6 @@
+// client/src/components/layout/AppLayout.tsx
 import React, { useState } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { Link as RouterLink, useNavigate, useLocation } from 'react-router-dom';
 import {
   AppBar,
   Box,
@@ -14,65 +15,92 @@ import {
   ListItemText,
   Toolbar,
   Typography,
+  Button,
+  useTheme,
+  useMediaQuery,
   Avatar,
   Menu,
   MenuItem,
-  Badge,
-  useTheme,
   Tooltip,
-  styled,
+  Badge,
 } from '@mui/material';
-
-// Icons
-import MenuIcon from '@mui/icons-material/Menu';
-import DashboardIcon from '@mui/icons-material/Dashboard';
-import BusinessIcon from '@mui/icons-material/Business';
-import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
-import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
-import PersonIcon from '@mui/icons-material/Person';
-import NotificationsIcon from '@mui/icons-material/Notifications';
-import LogoutIcon from '@mui/icons-material/Logout';
-import AddIcon from '@mui/icons-material/Add';
-
-// Auth context
+import {
+  Menu as MenuIcon,
+  Dashboard as DashboardIcon,
+  Business as ProjectsIcon,
+  AccountCircle as ProfileIcon,
+  AdminPanelSettings as AdminIcon,
+  Logout as LogoutIcon,
+  Notifications as NotificationsIcon,
+  Email as EmailIcon,
+  ChevronLeft as ChevronLeftIcon,
+  Person as PersonIcon,
+} from '@mui/icons-material';
+import { styled } from '@mui/material/styles';
 import { useAuth } from '../../contexts/AuthContext';
 
-// Styled components
-const drawerWidth = 260;
+const drawerWidth = 240;
 
-const StyledBrandBox = styled(Box)(({ theme }) => ({
-  display: 'flex',
-  alignItems: 'center',
-  padding: theme.spacing(2),
-  backgroundColor: theme.palette.background.paper,
-  borderBottom: `1px solid ${theme.palette.divider}`,
-  height: '64px',
-}));
-
-const StyledAppBar = styled(AppBar, {
-  shouldForwardProp: (prop) => prop !== 'open',
-})<{ open?: boolean }>(({ theme, open }) => ({
-  zIndex: theme.zIndex.drawer + 1,
-  transition: theme.transitions.create(['width', 'margin'], {
-    easing: theme.transitions.easing.sharp,
-    duration: theme.transitions.duration.leavingScreen,
-  }),
-  ...(open && {
-    marginLeft: drawerWidth,
-    width: `calc(100% - ${drawerWidth}px)`,
-    transition: theme.transitions.create(['width', 'margin'], {
-      easing: theme.transitions.easing.sharp,
-      duration: theme.transitions.duration.enteringScreen,
-    }),
-  }),
-}));
-
-interface NavigationItem {
-  label: string;
+interface NavItem {
+  title: string;
   path: string;
   icon: React.ReactNode;
   roles: string[];
 }
+
+const navItems: NavItem[] = [
+  {
+    title: 'Dashboard',
+    path: '/dashboard',
+    icon: <DashboardIcon />,
+    roles: ['Innovator', 'Investor', 'Admin', 'EscrowManager'],
+  },
+  {
+    title: 'Projects',
+    path: '/projects',
+    icon: <ProjectsIcon />,
+    roles: ['Innovator', 'Investor', 'Admin', 'EscrowManager'],
+  },
+  {
+    title: 'Profile',
+    path: '/profile',
+    icon: <ProfileIcon />,
+    roles: ['Innovator', 'Investor', 'Admin', 'EscrowManager'],
+  },
+  {
+    title: 'Admin Panel',
+    path: '/admin',
+    icon: <AdminIcon />,
+    roles: ['Admin', 'EscrowManager'],
+  },
+];
+
+const DrawerHeader = styled('div')(({ theme }) => ({
+  display: 'flex',
+  alignItems: 'center',
+  padding: theme.spacing(0, 1),
+  ...theme.mixins.toolbar,
+  justifyContent: 'space-between',
+}));
+
+const Content = styled('main', { shouldForwardProp: (prop) => prop !== 'open' })<{
+  open?: boolean;
+}>(({ theme, open }) => ({
+  flexGrow: 1,
+  padding: theme.spacing(3),
+  transition: theme.transitions.create('margin', {
+    easing: theme.transitions.easing.sharp,
+    duration: theme.transitions.duration.leavingScreen,
+  }),
+  marginLeft: 0,
+  ...(open && {
+    transition: theme.transitions.create('margin', {
+      easing: theme.transitions.easing.easeOut,
+      duration: theme.transitions.duration.enteringScreen,
+    }),
+    marginLeft: drawerWidth,
+  }),
+}));
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -80,176 +108,272 @@ interface AppLayoutProps {
 
 const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
   const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(!isMobile);
+  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const [notificationsAnchorEl, setNotificationsAnchorEl] = useState<null | HTMLElement>(null);
+  const [messagesAnchorEl, setMessagesAnchorEl] = useState<null | HTMLElement>(null);
+  
   const navigate = useNavigate();
   const location = useLocation();
   const { user, logout } = useAuth();
   
-  const [mobileOpen, setMobileOpen] = useState(false);
-  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-  const [notificationAnchorEl, setNotificationAnchorEl] = useState<null | HTMLElement>(null);
-  
-  const isMenuOpen = Boolean(anchorEl);
-  const isNotificationsOpen = Boolean(notificationAnchorEl);
-
   const handleDrawerToggle = () => {
-    setMobileOpen(!mobileOpen);
+    if (isMobile) {
+      setMobileOpen(!mobileOpen);
+    } else {
+      setDrawerOpen(!drawerOpen);
+    }
   };
-
-  const handleProfileMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
+  
+  const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorEl(event.currentTarget);
   };
-
-  const handleNotificationsOpen = (event: React.MouseEvent<HTMLElement>) => {
-    setNotificationAnchorEl(event.currentTarget);
-  };
-
+  
   const handleMenuClose = () => {
     setAnchorEl(null);
   };
-
-  const handleNotificationsClose = () => {
-    setNotificationAnchorEl(null);
-  };
-
-  const handleLogout = () => {
-    handleMenuClose();
-    logout();
-    navigate('/login');
-  };
-
+  
   const handleProfileClick = () => {
     handleMenuClose();
     navigate('/profile');
   };
-
-  // Navigation items based on user role
-  const navigationItems: NavigationItem[] = [
-    {
-      label: 'Dashboard',
-      path: '/dashboard',
-      icon: <DashboardIcon />,
-      roles: ['Admin', 'Innovator', 'Investor', 'EscrowManager'],
-    },
-    {
-      label: 'Projects',
-      path: '/projects',
-      icon: <BusinessIcon />,
-      roles: ['Admin', 'Innovator', 'Investor', 'EscrowManager'],
-    },
-    {
-      label: 'Create Project',
-      path: '/projects/create',
-      icon: <AddIcon />,
-      roles: ['Innovator'],
-    },
-    {
-      label: 'Investments',
-      path: '/investments',
-      icon: <AttachMoneyIcon />,
-      roles: ['Investor'],
-    },
-    {
-      label: 'Admin Panel',
-      path: '/admin',
-      icon: <AdminPanelSettingsIcon />,
-      roles: ['Admin', 'EscrowManager'],
-    },
-  ];
-
-  const filteredNavigationItems = user
-    ? navigationItems.filter((item) => item.roles.includes(user.role))
-    : [];
-
+  
+  const handleLogout = async () => {
+    handleMenuClose();
+    await logout();
+    navigate('/login');
+  };
+  
+  const handleNotificationsOpen = (event: React.MouseEvent<HTMLElement>) => {
+    setNotificationsAnchorEl(event.currentTarget);
+  };
+  
+  const handleNotificationsClose = () => {
+    setNotificationsAnchorEl(null);
+  };
+  
+  const handleMessagesOpen = (event: React.MouseEvent<HTMLElement>) => {
+    setMessagesAnchorEl(event.currentTarget);
+  };
+  
+  const handleMessagesClose = () => {
+    setMessagesAnchorEl(null);
+  };
+  
   const drawer = (
-    <div>
-      <StyledBrandBox>
-        <Typography variant="h6" noWrap component="div" color="primary.main" fontWeight="bold">
-          InnoCap Forge
+    <Box sx={{ overflow: 'auto' }}>
+      <DrawerHeader>
+        <Typography 
+          variant="h6" 
+          color="primary" 
+          sx={{ 
+            fontWeight: 'bold',
+            mx: 'auto',
+            background: `linear-gradient(45deg, ${theme.palette.primary.main} 30%, ${theme.palette.secondary.main} 90%)`,
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+          }}
+        >
+          Funding Platform
         </Typography>
-      </StyledBrandBox>
+        {!isMobile && (
+          <IconButton onClick={handleDrawerToggle}>
+            <ChevronLeftIcon />
+          </IconButton>
+        )}
+      </DrawerHeader>
       <Divider />
       <List>
-      {filteredNavigationItems.map((item) => (
-          <ListItem key={item.path} disablePadding>
-            <ListItemButton
-              selected={location.pathname === item.path}
-              onClick={() => {
-                navigate(item.path);
-                setMobileOpen(false);
-              }}
-              sx={{
-                mx: 1,
-                my: 0.5,
-                borderRadius: 1,
-                '&.Mui-selected': {
-                  backgroundColor: 'primary.main',
-                  '&:hover': {
-                    backgroundColor: 'primary.dark',
-                  },
-                },
-              }}
-            >
-              <ListItemIcon
+        {navItems
+          .filter(item => item.roles.includes(user?.role || ''))
+          .map((item) => (
+            <ListItem key={item.path} disablePadding>
+              <ListItemButton
+                component={RouterLink}
+                to={item.path}
+                selected={location.pathname === item.path}
                 sx={{
-                  minWidth: 40,
-                  color: location.pathname === item.path ? 'white' : 'inherit',
+                  borderLeft: location.pathname === item.path ? `4px solid ${theme.palette.primary.main}` : 'none',
+                  bgcolor: location.pathname === item.path ? 'rgba(255, 255, 255, 0.08)' : 'transparent',
                 }}
               >
-                {item.icon}
-              </ListItemIcon>
-              <ListItemText 
-                primary={item.label}
-                primaryTypographyProps={{
-                  color: location.pathname === item.path ? 'white' : 'inherit',
-                }}
-              />
-            </ListItemButton>
-          </ListItem>
-        ))}
+                <ListItemIcon
+                  sx={{
+                    color: location.pathname === item.path ? theme.palette.primary.main : 'inherit',
+                  }}
+                >
+                  {item.icon}
+                </ListItemIcon>
+                <ListItemText 
+                  primary={item.title} 
+                  sx={{
+                    color: location.pathname === item.path ? theme.palette.primary.main : 'inherit',
+                  }}
+                />
+              </ListItemButton>
+            </ListItem>
+          ))}
       </List>
-    </div>
+      <Divider sx={{ mt: 2, mb: 2 }} />
+      <Box sx={{ p: 2 }}>
+        <Button
+          variant="outlined"
+          color="primary"
+          fullWidth
+          startIcon={<LogoutIcon />}
+          onClick={handleLogout}
+        >
+          Sign Out
+        </Button>
+      </Box>
+    </Box>
   );
-
-  const container = window !== undefined ? () => document.body : undefined;
-
+  
   return (
-    <Box sx={{ display: 'flex', minHeight: '100vh' }}>
+    <Box sx={{ display: 'flex' }}>
       <CssBaseline />
-      <StyledAppBar position="fixed" open={!mobileOpen}>
-        <Toolbar>
+      <AppBar
+        position="fixed"
+        sx={{
+          width: isMobile ? '100%' : drawerOpen ? `calc(100% - ${drawerWidth}px)` : '100%',
+          ml: isMobile ? 0 : drawerOpen ? `${drawerWidth}px` : 0,
+          boxShadow: 'none',
+          bgcolor: 'background.paper',
+          borderBottom: `1px solid ${theme.palette.divider}`,
+          transition: theme.transitions.create(['width', 'margin'], {
+            easing: theme.transitions.easing.sharp,
+            duration: theme.transitions.duration.leavingScreen,
+          }),
+        }}
+        color="default"
+      >
+        <Toolbar sx={{ pr: '24px' }}>
           <IconButton
+            edge="start"
             color="inherit"
             aria-label="open drawer"
-            edge="start"
             onClick={handleDrawerToggle}
-            sx={{ mr: 2, display: { sm: 'none' } }}
+            sx={{ mr: 2, display: 'flex' }}
           >
             <MenuIcon />
           </IconButton>
-          <Typography variant="h6" noWrap component="div" sx={{ display: { xs: 'none', sm: 'block' } }}>
-            {user?.role || ''} Dashboard
+
+          <Typography
+            component="h1"
+            variant="h6"
+            color="inherit"
+            noWrap
+            sx={{ flexGrow: 1, display: { xs: 'none', sm: 'block' } }}
+          >
+            {navItems.find(item => item.path === location.pathname)?.title || 'Dashboard'}
           </Typography>
-          <Box sx={{ flexGrow: 1 }} />
+
           <Box sx={{ display: 'flex', alignItems: 'center' }}>
+            <Tooltip title="Messages">
+              <IconButton
+                size="large"
+                aria-label="show new messages"
+                color="inherit"
+                onClick={handleMessagesOpen}
+                sx={{ mr: 1 }}
+              >
+                <Badge badgeContent={3} color="primary">
+                  <EmailIcon />
+                </Badge>
+              </IconButton>
+            </Tooltip>
+            
+            <Menu
+              anchorEl={messagesAnchorEl}
+              id="messages-menu"
+              open={Boolean(messagesAnchorEl)}
+              onClose={handleMessagesClose}
+              PaperProps={{
+                sx: { maxHeight: 300, width: 320 },
+              }}
+              transformOrigin={{ horizontal: 'right', vertical: 'top' }}
+              anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
+            >
+              <MenuItem onClick={handleMessagesClose}>
+                <ListItemText
+                  primary="Project Update"
+                  secondary="Your project 'Smart Agriculture' has a new update"
+                  secondaryTypographyProps={{ noWrap: true }}
+                />
+              </MenuItem>
+              <MenuItem onClick={handleMessagesClose}>
+                <ListItemText
+                  primary="New Message"
+                  secondary="Sarah Johnson sent you a message about your project"
+                  secondaryTypographyProps={{ noWrap: true }}
+                />
+              </MenuItem>
+              <Divider />
+              <MenuItem onClick={() => {
+                handleMessagesClose();
+                // navigate('/messages');
+              }}>
+                <Typography color="primary">View All Messages</Typography>
+              </MenuItem>
+            </Menu>
+            
             <Tooltip title="Notifications">
               <IconButton
                 size="large"
                 aria-label="show new notifications"
                 color="inherit"
                 onClick={handleNotificationsOpen}
+                sx={{ mr: 2 }}
               >
-                <Badge badgeContent={4} color="secondary">
+                <Badge badgeContent={5} color="error">
                   <NotificationsIcon />
                 </Badge>
               </IconButton>
             </Tooltip>
+            
+            <Menu
+              anchorEl={notificationsAnchorEl}
+              id="notifications-menu"
+              open={Boolean(notificationsAnchorEl)}
+              onClose={handleNotificationsClose}
+              PaperProps={{
+                sx: { maxHeight: 300, width: 320 },
+              }}
+              transformOrigin={{ horizontal: 'right', vertical: 'top' }}
+              anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
+            >
+              <MenuItem onClick={handleNotificationsClose}>
+                <ListItemText
+                  primary="Investment Received"
+                  secondary="Your project received a new investment of $5,000"
+                  secondaryTypographyProps={{ noWrap: true }}
+                />
+              </MenuItem>
+              <MenuItem onClick={handleNotificationsClose}>
+                <ListItemText
+                  primary="Milestone Approved"
+                  secondary="Your milestone 'Prototype Development' has been approved"
+                  secondaryTypographyProps={{ noWrap: true }}
+                />
+              </MenuItem>
+              <Divider />
+              <MenuItem onClick={() => {
+                handleNotificationsClose();
+                // navigate('/notifications');
+              }}>
+                <Typography color="primary">View All Notifications</Typography>
+              </MenuItem>
+            </Menu>
+            
             <Tooltip title={user?.full_name || 'Profile'}>
               <IconButton
                 size="large"
                 edge="end"
                 aria-label="account of current user"
                 aria-haspopup="true"
-                onClick={handleProfileMenuOpen}
+                onClick={handleMenuOpen}
                 color="inherit"
               >
                 <Avatar
@@ -259,23 +383,45 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
                     width: 35, 
                     height: 35,
                     bgcolor: theme.palette.primary.main,
-                    border: `2px solid ${theme.palette.background.paper}`,
                   }}
                 >
                   {user?.full_name?.charAt(0) || <PersonIcon />}
                 </Avatar>
               </IconButton>
             </Tooltip>
+            
+            <Menu
+              anchorEl={anchorEl}
+              id="account-menu"
+              open={Boolean(anchorEl)}
+              onClose={handleMenuClose}
+              transformOrigin={{ horizontal: 'right', vertical: 'top' }}
+              anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
+            >
+              <MenuItem onClick={handleProfileClick}>
+                <ListItemIcon>
+                  <ProfileIcon fontSize="small" />
+                </ListItemIcon>
+                Profile
+              </MenuItem>
+              <Divider />
+              <MenuItem onClick={handleLogout}>
+                <ListItemIcon>
+                  <LogoutIcon fontSize="small" />
+                </ListItemIcon>
+                Sign Out
+              </MenuItem>
+            </Menu>
           </Box>
         </Toolbar>
-      </StyledAppBar>
+      </AppBar>
+      
       <Box
         component="nav"
-        sx={{ width: { sm: drawerWidth }, flexShrink: { sm: 0 } }}
-        aria-label="mailbox folders"
+        sx={{ width: { md: drawerOpen ? drawerWidth : 0 }, flexShrink: { md: 0 } }}
       >
+        {/* Mobile drawer */}
         <Drawer
-          container={container}
           variant="temporary"
           open={mobileOpen}
           onClose={handleDrawerToggle}
@@ -283,143 +429,34 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
             keepMounted: true, // Better open performance on mobile.
           }}
           sx={{
-            display: { xs: 'block', sm: 'none' },
+            display: { xs: 'block', md: 'none' },
             '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth },
           }}
         >
           {drawer}
         </Drawer>
+        
+        {/* Desktop drawer */}
         <Drawer
-          variant="permanent"
+          variant="persistent"
+          open={drawerOpen}
           sx={{
-            display: { xs: 'none', sm: 'block' },
+            display: { xs: 'none', md: 'block' },
             '& .MuiDrawer-paper': { 
               boxSizing: 'border-box', 
               width: drawerWidth,
               backgroundColor: theme.palette.background.default,
-              borderRight: `1px solid ${theme.palette.divider}`
+              borderRight: `1px solid ${theme.palette.divider}`,
             },
           }}
-          open
         >
           {drawer}
         </Drawer>
       </Box>
-      <Box
-        component="main"
-        sx={{
-          flexGrow: 1,
-          p: 3,
-          width: { sm: `calc(100% - ${drawerWidth}px)` },
-          backgroundImage: `linear-gradient(to bottom, ${theme.palette.background.default}, ${theme.palette.background.paper})`,
-          minHeight: '100vh',
-        }}
-      >
-        <Toolbar />
+      
+      <Content open={drawerOpen && !isMobile} sx={{ pt: 10 }}>
         {children}
-      </Box>
-      
-      {/* Profile Menu */}
-      <Menu
-        anchorEl={anchorEl}
-        anchorOrigin={{
-          vertical: 'bottom',
-          horizontal: 'right',
-        }}
-        id="primary-search-account-menu"
-        keepMounted
-        transformOrigin={{
-          vertical: 'top',
-          horizontal: 'right',
-        }}
-        open={isMenuOpen}
-        onClose={handleMenuClose}
-      >
-        <MenuItem onClick={handleProfileClick}>
-          <ListItemIcon>
-            <PersonIcon fontSize="small" />
-          </ListItemIcon>
-          Profile
-        </MenuItem>
-        <MenuItem onClick={handleLogout}>
-          <ListItemIcon>
-            <LogoutIcon fontSize="small" />
-          </ListItemIcon>
-          Logout
-        </MenuItem>
-      </Menu>
-      
-      {/* Notifications Menu */}
-      <Menu
-        anchorEl={notificationAnchorEl}
-        anchorOrigin={{
-          vertical: 'bottom',
-          horizontal: 'right',
-        }}
-        id="notifications-menu"
-        keepMounted
-        transformOrigin={{
-          vertical: 'top',
-          horizontal: 'right',
-        }}
-        open={isNotificationsOpen}
-        onClose={handleNotificationsClose}
-        PaperProps={{
-          style: {
-            maxHeight: 400,
-            width: 360,
-          },
-        }}
-      >
-        <Typography sx={{ p: 2 }} variant="h6">
-          Notifications
-        </Typography>
-        <Divider />
-        <List sx={{ p: 0 }}>
-          <ListItem sx={{ py: 2 }}>
-            <ListItemText 
-              primary="New Project Funding" 
-              secondary="Your project 'Smart Agriculture System' has received new funding."
-              secondaryTypographyProps={{ 
-                color: 'text.secondary',
-                noWrap: false,
-              }} 
-            />
-          </ListItem>
-          <Divider />
-          <ListItem sx={{ py: 2 }}>
-            <ListItemText 
-              primary="Milestone Approved" 
-              secondary="The milestone 'Prototype Development' has been approved."
-              secondaryTypographyProps={{ 
-                color: 'text.secondary',
-                noWrap: false,
-              }} 
-            />
-          </ListItem>
-          <Divider />
-          <ListItem sx={{ py: 2 }}>
-            <ListItemText 
-              primary="Account Verified" 
-              secondary="Your account has been verified. You can now create projects."
-              secondaryTypographyProps={{ 
-                color: 'text.secondary',
-                noWrap: false,
-              }} 
-            />
-          </ListItem>
-        </List>
-        <Divider />
-        <Box sx={{ p: 1, display: 'flex', justifyContent: 'center' }}>
-          <Typography 
-            variant="body2" 
-            color="primary" 
-            sx={{ cursor: 'pointer', fontWeight: 'bold' }}
-          >
-            View All Notifications
-          </Typography>
-        </Box>
-      </Menu>
+      </Content>
     </Box>
   );
 };
